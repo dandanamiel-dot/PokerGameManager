@@ -44,7 +44,7 @@ class GameViewModel: ObservableObject {
     
     func calculateSettlements() {
         activeSession.status = .completed
-        activeSession.date = Date() // Updates end time effectively
+        activeSession.endedAt = Date()
         try? modelContext.save()
     }
 

@@ -11,6 +11,19 @@ struct AppTheme {
     static let profit = Color(hex: "4ADE80") // Green-400
     static let loss = Color(hex: "F87171")   // Red-400
     
+    // MARK: - Input Field Styles
+    static let inputBackground = Color.white.opacity(0.1)
+    static let inputBorderDefault = accent.opacity(0.3)
+    static let inputBorderFocused = accent
+    
+    // MARK: - Spacing Tokens
+    static let spacingS: CGFloat = 12
+    static let spacingM: CGFloat = 16
+    static let spacingL: CGFloat = 24
+    
+    // MARK: - Touch Targets
+    static let minTouchTarget: CGFloat = 44
+    
     // MARK: - Gradients
     static let primaryGradient = LinearGradient(
         colors: [accent.opacity(0.8), accent],

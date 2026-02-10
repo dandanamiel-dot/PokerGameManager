@@ -7,6 +7,7 @@ struct HomeView: View {
     @Query(sort: \GameSession.date, order: .reverse) private var recentGames: [GameSession]
     @State private var showNewGameSheet = false
     @State private var selectedGame: GameSession?
+    @State private var gameToEdit: GameSession?
     
     var activeGame: GameSession? {
         recentGames.first(where: { $0.status == .active })
@@ -50,24 +51,13 @@ struct HomeView: View {
                                 .font(.system(size: 48, weight: .bold, design: .rounded))
                                 .foregroundStyle(.white)
                             
-                            HStack(spacing: 16) {
-                                AccentButton(title: "New Game", icon: "plus") {
-                                    showNewGameSheet = true
+                            if let game = activeGame {
+                                AccentButton(title: "Take Me to the Table", icon: "suit.spade.fill") {
+                                    selectedGame = game
                                 }
-                                
-                                Button {
-                                    // Resume action
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "play.fill")
-                                        Text("Resume")
-                                    }
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(AppTheme.accent)
-                                    .padding(.vertical, 12)
-                                    .padding(.horizontal, 24)
-                                    .background(Color.black.opacity(0.3))
-                                    .cornerRadius(30)
+                            } else {
+                                AccentButton(title: "Start New Game", icon: "plus") {
+                                    showNewGameSheet = true
                                 }
                             }
                         }
@@ -111,6 +101,27 @@ struct HomeView: View {
                                 }
                                 .padding()
                             }
+                            .contextMenu {
+                                Button {
+                                    gameToEdit = game
+                                } label: {
+                                    Label("Edit Details", systemImage: "pencil")
+                                }
+                                
+                                if game.status == .completed {
+                                    Button {
+                                        reopenGame(game)
+                                    } label: {
+                                        Label("Re-open Game", systemImage: "arrow.uturn.backward")
+                                    }
+                                }
+                                
+                                Button(role: .destructive) {
+                                    deleteGame(game)
+                                } label: {
+                                    Label("Delete Game", systemImage: "trash")
+                                }
+                            }
                             .onTapGesture {
                                 selectedGame = game
                             }
@@ -122,10 +133,28 @@ struct HomeView: View {
                 .sheet(isPresented: $showNewGameSheet) {
                     NewGameSheet()
                 }
+                .sheet(item: $gameToEdit) { game in
+                    EditGameSheet(game: game)
+                }
                 .fullScreenCover(item: $selectedGame) { game in
                     GameSessionView(session: game, modelContext: modelContext)
                 }
             }
+        }
+    }
+    
+    // MARK: - Actions
+    private func deleteGame(_ game: GameSession) {
+        withAnimation {
+            modelContext.delete(game)
+            // Save handled automatically or by context
+        }
+    }
+    
+    private func reopenGame(_ game: GameSession) {
+        withAnimation {
+            game.status = .active
+            game.endedAt = nil
         }
     }
 }

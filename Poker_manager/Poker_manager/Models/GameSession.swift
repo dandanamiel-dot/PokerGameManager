@@ -14,6 +14,8 @@ final class GameSession {
     var status: GameStatus
     var notes: String?
     
+    var endedAt: Date?
+    
     @Relationship(deleteRule: .cascade)
     var playerSessions: [PlayerSession] = []
     
@@ -36,8 +38,7 @@ final class GameSession {
     }
     
     var duration: TimeInterval {
-        // Simple duration from start to now (if active) or start to last update
-        // improved logic could add an 'endedAt' date
-        Date().timeIntervalSince(date)
+        let end = endedAt ?? Date()
+        return end.timeIntervalSince(date)
     }
 }

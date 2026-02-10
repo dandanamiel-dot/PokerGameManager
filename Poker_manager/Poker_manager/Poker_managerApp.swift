@@ -12,7 +12,7 @@ import SwiftData
 struct Poker_managerApp: App {
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            WelcomeView()
         }
         .modelContainer(for: [
             Player.self,

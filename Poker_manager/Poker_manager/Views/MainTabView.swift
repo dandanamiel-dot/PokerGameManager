@@ -14,10 +14,7 @@ struct MainTabView: View {
                 HomeView()
                     .tag(0)
                 
-                // Placeholder for Game Tab - in reality this might be a modal or separate flow
-                // But for the tab bar, we'll just show the active game view if there is one,
-                // or a "Start New Game" view
-                Text("Game View Placeholder") // Replaced later
+                LiveGameTabView()
                     .tag(1)
                 
                 HistoryView()
