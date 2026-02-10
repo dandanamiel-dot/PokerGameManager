@@ -6,6 +6,9 @@ struct PlayersView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Player.name) private var players: [Player]
     @State private var showAddPlayer = false
+    @State private var playerToEdit: Player?
+    @State private var playerToDelete: Player?
+    @State private var showDeleteConfirmation = false
     
     var body: some View {
         ZStack {
@@ -42,6 +45,21 @@ struct PlayersView: View {
                                 amount: nil, 
                                 isPositive: true
                             )
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    playerToDelete = player
+                                    showDeleteConfirmation = true
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                
+                                Button {
+                                    playerToEdit = player
+                                } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                                .tint(AppTheme.accent)
+                            }
                         }
                     }
                     .padding()
@@ -52,5 +70,26 @@ struct PlayersView: View {
         .sheet(isPresented: $showAddPlayer) {
             AddPlayerView()
         }
+        .sheet(item: $playerToEdit) { player in
+            EditPlayerSheet(player: player)
+        }
+        .alert("Delete Player", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                if let player = playerToDelete {
+                    deletePlayer(player)
+                }
+            }
+        } message: {
+            if let player = playerToDelete {
+                Text("Are you sure you want to delete \(player.name)? This action cannot be undone.")
+            }
+        }
+    }
+    
+    private func deletePlayer(_ player: Player) {
+        modelContext.delete(player)
+        try? modelContext.save()
+        playerToDelete = nil
     }
 }

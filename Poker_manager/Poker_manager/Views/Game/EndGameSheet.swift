@@ -4,6 +4,7 @@ import SwiftUI
 struct EndGameSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: GameViewModel
+    var onCalculateSettlement: () -> Void
     
     var body: some View {
         NavigationView {
@@ -72,7 +73,11 @@ struct EndGameSheet: View {
                         
                         AccentButton(title: "Calculate Settlement") {
                             viewModel.calculateSettlements()
-                            viewModel.showSettlementView = true
+                            dismiss()
+                            // Trigger settlement view after dismissal
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                onCalculateSettlement()
+                            }
                         }
                         .disabled(abs(diff) > 1)
                         .opacity(abs(diff) > 1 ? 0.5 : 1)

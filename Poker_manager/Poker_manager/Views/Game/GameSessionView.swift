@@ -112,7 +112,10 @@ struct GameSessionView: View {
             AddBuyInSheet(viewModel: viewModel)
         }
         .sheet(isPresented: $showEndGame) {
-            EndGameSheet(viewModel: viewModel)
+            EndGameSheet(viewModel: viewModel) {
+                // This callback is triggered after EndGameSheet dismisses
+                viewModel.showSettlementView = true
+            }
         }
         .sheet(isPresented: $viewModel.showSettlementView) {
             SettlementView(viewModel: viewModel)
