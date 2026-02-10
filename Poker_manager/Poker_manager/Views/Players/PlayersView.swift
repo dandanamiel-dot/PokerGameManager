@@ -36,35 +36,38 @@ struct PlayersView: View {
                 .padding()
                 .padding(.top, 40)
                 
-                ScrollView {
-                    VStack(spacing: 16) {
-                        ForEach(players) { player in
-                            PlayerRow(
-                                name: player.name,
-                                detail: "Joined \(player.createdAt.formatted(date: .abbreviated, time: .omitted))",
-                                amount: nil, 
-                                isPositive: true
-                            )
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button(role: .destructive) {
-                                    playerToDelete = player
-                                    showDeleteConfirmation = true
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                                
-                                Button {
-                                    playerToEdit = player
-                                } label: {
-                                    Label("Edit", systemImage: "pencil")
-                                }
-                                .tint(AppTheme.accent)
+                // Using List instead of ScrollView for swipe actions to work
+                List {
+                    ForEach(players) { player in
+                        PlayerRow(
+                            name: player.name,
+                            detail: "Joined \(player.createdAt.formatted(date: .abbreviated, time: .omitted))",
+                            amount: nil, 
+                            isPositive: true
+                        )
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                playerToDelete = player
+                                showDeleteConfirmation = true
+                            } label: {
+                                Label("Delete", systemImage: "trash")
                             }
+                            
+                            Button {
+                                playerToEdit = player
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
+                            .tint(AppTheme.accent)
                         }
                     }
-                    .padding()
-                    .padding(.bottom, 100)
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .padding(.bottom, 100)
             }
         }
         .sheet(isPresented: $showAddPlayer) {
