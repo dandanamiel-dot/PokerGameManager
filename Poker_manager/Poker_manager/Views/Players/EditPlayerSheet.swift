@@ -6,7 +6,7 @@ struct EditPlayerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     
-    @Bindable var player: Player
+    let player: Player
     @State private var playerName: String = ""
     
     var body: some View {
