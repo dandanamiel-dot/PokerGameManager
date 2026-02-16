@@ -10,6 +10,9 @@ struct GameSessionView: View {
     @StateObject private var viewModel: GameViewModel
     @State private var showAddBuyIn = false
     @State private var showEndGame = false
+    @State private var showShareRoom = false
+    @State private var isCreatingRoom = false
+    @ObservedObject private var firebaseService = FirebaseService.shared
     private var isEmbedded: Bool
     
     init(session: GameSession, modelContext: ModelContext, isEmbedded: Bool = false) {
@@ -56,6 +59,32 @@ struct GameSessionView: View {
                     Spacer()
                     
                     Menu {
+                        if viewModel.activeSession.status == .active {
+                            if firebaseService.roomCode != nil && firebaseService.isHost {
+                                Button {
+                                    showShareRoom = true
+                                } label: {
+                                    Label("Show Room Code", systemImage: "antenna.radiowaves.left.and.right")
+                                }
+                            } else {
+                                Button {
+                                    isCreatingRoom = true
+                                    firebaseService.createRoom(from: viewModel.activeSession) { result in
+                                        isCreatingRoom = false
+                                        switch result {
+                                        case .success:
+                                            showShareRoom = true
+                                        case .failure(let error):
+                                            print("Failed to create room: \(error)")
+                                        }
+                                    }
+                                } label: {
+                                    Label(isCreatingRoom ? "Creating..." : "Share Game Live", systemImage: "square.and.arrow.up")
+                                }
+                                .disabled(isCreatingRoom)
+                            }
+                        }
+                        
                         if viewModel.activeSession.status == .completed {
                             Button {
                                 withAnimation {
@@ -66,11 +95,17 @@ struct GameSessionView: View {
                                 Label("Re-open Game", systemImage: "arrow.uturn.backward")
                             }
                         }
-                        // Add other menu items here if needed
                     } label: {
-                        Image(systemName: "ellipsis")
-                            .foregroundStyle(.white)
-                            .padding()
+                        HStack(spacing: 6) {
+                            if firebaseService.roomCode != nil && firebaseService.isHost {
+                                Image(systemName: "antenna.radiowaves.left.and.right")
+                                    .foregroundStyle(AppTheme.accent)
+                                    .font(.caption)
+                            }
+                            Image(systemName: "ellipsis")
+                                .foregroundStyle(.white)
+                        }
+                        .padding()
                     }
                 }
                 .padding()
@@ -251,15 +286,31 @@ struct GameSessionView: View {
         }
         .sheet(isPresented: $showAddBuyIn) {
             AddBuyInSheet(viewModel: viewModel)
+                .onDisappear {
+                    // Sync to Firebase after buy-in
+                    if firebaseService.isHost && firebaseService.roomCode != nil {
+                        firebaseService.syncRoom(from: viewModel.activeSession)
+                    }
+                }
         }
         .sheet(isPresented: $showEndGame) {
             EndGameSheet(viewModel: viewModel) {
-                // This callback is triggered after EndGameSheet dismisses
+                // Sync settlement to Firebase
+                if firebaseService.isHost && firebaseService.roomCode != nil {
+                    let transactions = viewModel.generateTransactions()
+                    firebaseService.syncRoom(from: viewModel.activeSession)
+                    firebaseService.syncSettlement(transactions: transactions.map { ($0.from, $0.to, $0.amount) })
+                }
                 viewModel.showSettlementView = true
             }
         }
         .sheet(isPresented: $viewModel.showSettlementView) {
             SettlementView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showShareRoom) {
+            if let code = firebaseService.roomCode {
+                ShareRoomSheet(roomCode: code)
+            }
         }
         .onAppear {
             viewModel.fetchPlayers()
