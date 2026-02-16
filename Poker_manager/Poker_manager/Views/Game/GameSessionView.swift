@@ -113,16 +113,35 @@ struct GameSessionView: View {
                                 }
                             }
                         } else {
-                            // Completed Game Indicator
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                Text("Game Completed")
+                            // Completed Game Indicator + View Settlement
+                            HStack(spacing: 12) {
+                                HStack {
+                                    Image(systemName: "checkmark.circle.fill")
+                                    Text("Game Completed")
+                                }
+                                .font(.headline)
+                                .foregroundStyle(AppTheme.accent)
+                                .padding()
+                                .background(AppTheme.accent.opacity(0.1))
+                                .clipShape(Capsule())
+                                
+                                Button {
+                                    viewModel.showSettlementView = true
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "doc.text.magnifyingglass")
+                                        Text("Settlement")
+                                    }
+                                    .font(.headline)
+                                    .foregroundStyle(.white)
+                                    .padding()
+                                    .background(AppTheme.cardBackground)
+                                    .clipShape(Capsule())
+                                    .overlay(
+                                        Capsule().stroke(AppTheme.accent.opacity(0.3), lineWidth: 1)
+                                    )
+                                }
                             }
-                            .font(.headline)
-                            .foregroundStyle(AppTheme.accent)
-                            .padding()
-                            .background(AppTheme.accent.opacity(0.1))
-                            .clipShape(Capsule())
                         }
                         
                         // Buy-In Timeline Chart (stock chart style)
