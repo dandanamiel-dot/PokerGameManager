@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MainTabView: View {
     let group: PokerGroup?
+    var onExit: (() -> Void)?
     
     @State private var selectedTab = 0
     
@@ -18,7 +19,7 @@ struct MainTabView: View {
             
             // Main Content
             TabView(selection: $selectedTab) {
-                HomeView(group: group, currencySymbol: currencySymbol)
+                HomeView(group: group, currencySymbol: currencySymbol, onExit: onExit)
                     .tag(0)
                 
                 LiveGameTabView()

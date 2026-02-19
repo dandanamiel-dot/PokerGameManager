@@ -12,9 +12,18 @@ struct LandingView: View {
     
     var body: some View {
         if navigateToQuickStart {
-            MainTabView(group: nil)
+            MainTabView(group: nil) {
+                withAnimation(.spring(response: 0.4)) {
+                    navigateToQuickStart = false
+                }
+            }
         } else if let group = selectedGroup {
-            MainTabView(group: group)
+            MainTabView(group: group) {
+                withAnimation(.spring(response: 0.4)) {
+                    selectedGroup = nil
+                    firebaseService.activeGroup = nil
+                }
+            }
         } else {
             landingContent
         }

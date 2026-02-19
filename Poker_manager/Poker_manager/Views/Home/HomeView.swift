@@ -5,6 +5,7 @@ import SwiftData
 struct HomeView: View {
     let group: PokerGroup?
     let currencySymbol: String
+    var onExit: (() -> Void)?
     
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \GameSession.date, order: .reverse) private var recentGames: [GameSession]
@@ -38,6 +39,18 @@ struct HomeView: View {
                 VStack(spacing: 24) {
                     // Header
                     HStack {
+                        if let onExit = onExit {
+                            Button {
+                                onExit()
+                            } label: {
+                                Image(systemName: "arrow.left")
+                                    .foregroundStyle(.white)
+                                    .padding(12)
+                                    .background(AppTheme.cardBackground)
+                                    .clipShape(Circle())
+                            }
+                        }
+                        
                         VStack(alignment: .leading) {
                             if let group = group {
                                 Text(group.name)
