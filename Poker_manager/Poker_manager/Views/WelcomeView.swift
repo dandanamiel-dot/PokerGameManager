@@ -60,11 +60,13 @@ struct WelcomeView: View {
                 // MARK: - Bold Headline
                 VStack(spacing: 6) {
                     Text("Poker Night,")
-                        .font(.system(size: 38, weight: .bold, design: .rounded))
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
                         .foregroundStyle(.white)
                     
                     Text("Upgraded.")
-                        .font(.system(size: 38, weight: .bold, design: .rounded))
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
                         .foregroundStyle(AppTheme.accent)
                 }
                 .opacity(showHeadline ? 1 : 0)
@@ -73,7 +75,7 @@ struct WelcomeView: View {
                 
                 // MARK: - Subtitle
                 Text("Track buy-ins, settle up instantly,\nand manage your poker group like a pro.")
-                    .font(.subheadline)
+                    .font(.body)
                     .foregroundStyle(AppTheme.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
