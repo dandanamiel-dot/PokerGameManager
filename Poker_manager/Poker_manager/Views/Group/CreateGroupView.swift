@@ -35,24 +35,24 @@ struct CreateGroupView: View {
     // MARK: - Create Form
     
     private var createFormView: some View {
-        VStack(spacing: 28) {
-            Spacer()
-            
-            // Icon
-            VStack(spacing: 12) {
-                Image(systemName: "person.3.fill")
-                    .font(.system(size: 50))
-                    .foregroundStyle(AppTheme.accent)
-                
-                Text("Create a Group")
-                    .font(.title.bold())
-                    .foregroundStyle(.white)
-                
-                Text("Give your poker group a name\nand set preferences")
-                    .font(.subheadline)
-                    .foregroundStyle(.gray)
-                    .multilineTextAlignment(.center)
-            }
+        ScrollView {
+            VStack(spacing: 28) {
+                // Icon
+                VStack(spacing: 12) {
+                    Image(systemName: "person.3.fill")
+                        .font(.system(size: 50))
+                        .foregroundStyle(AppTheme.accent)
+                    
+                    Text("Create a Group")
+                        .font(.title.bold())
+                        .foregroundStyle(.white)
+                    
+                    Text("Give your poker group a name\nand set preferences")
+                        .font(.subheadline)
+                        .foregroundStyle(.gray)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 40)
             
             // Input Fields
             VStack(spacing: 16) {
@@ -181,8 +181,12 @@ struct CreateGroupView: View {
             }
             .disabled(!canCreate || isCreating)
             .padding(.horizontal, 24)
-            
-            Spacer()
+            }
+            .padding(.bottom, 40)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
     }
     
