@@ -90,12 +90,33 @@ struct WelcomeView: View {
                 Spacer()
                 Spacer()
                 
-                // MARK: - Bottom branding
-                Text("Nano Banana Pro")
-                    .font(.caption.bold())
-                    .foregroundStyle(AppTheme.textSecondary.opacity(0.6))
-                    .opacity(showSubtitle ? 1 : 0)
-                    .padding(.bottom, 40)
+                // MARK: - Get Started Button
+                VStack(spacing: 14) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.4)) {
+                            isActive = true
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text("Get Started")
+                            Image(systemName: "arrow.right")
+                        }
+                        .font(.headline)
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(AppTheme.accent)
+                        .clipShape(Capsule())
+                    }
+                    .padding(.horizontal, 20)
+                    
+                    Text("Nano Banana Pro")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.textSecondary.opacity(0.5))
+                }
+                .opacity(showCard ? 1 : 0)
+                .offset(y: showCard ? 0 : 15)
+                .padding(.bottom, 36)
             }
             .padding(.horizontal, 28)
         }
@@ -238,12 +259,7 @@ struct WelcomeView: View {
             }
         }
         
-        // Transition to landing
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
-            withAnimation(.easeInOut(duration: 0.4)) {
-                isActive = true
-            }
-        }
+
     }
 }
 
