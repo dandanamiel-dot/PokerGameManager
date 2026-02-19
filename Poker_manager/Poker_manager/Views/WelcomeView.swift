@@ -7,7 +7,7 @@ struct WelcomeView: View {
     
     var body: some View {
         if isActive {
-            MainTabView()
+            LandingView()
         } else {
             ZStack {
                 AppTheme.background.ignoresSafeArea()

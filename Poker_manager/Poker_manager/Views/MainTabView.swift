@@ -2,7 +2,14 @@
 import SwiftUI
 
 struct MainTabView: View {
+    let group: PokerGroup?
+    
     @State private var selectedTab = 0
+    
+    /// Currency symbol: from group if available, otherwise default ₪
+    var currencySymbol: String {
+        group?.currencySymbol ?? "₪"
+    }
     
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -11,13 +18,13 @@ struct MainTabView: View {
             
             // Main Content
             TabView(selection: $selectedTab) {
-                HomeView()
+                HomeView(group: group, currencySymbol: currencySymbol)
                     .tag(0)
                 
                 LiveGameTabView()
                     .tag(1)
                 
-                HistoryView()
+                HistoryView(currencySymbol: currencySymbol)
                     .tag(2)
                 
                 PlayersView()
@@ -34,5 +41,5 @@ struct MainTabView: View {
 }
 
 #Preview {
-    MainTabView()
+    MainTabView(group: nil)
 }

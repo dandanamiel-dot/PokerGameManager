@@ -66,6 +66,26 @@ struct SettlementView: View {
                     
                     Spacer()
                     
+                    // Share Settlement
+                    ShareLink(
+                        item: settlementText,
+                        subject: Text("Poker Settlement"),
+                        message: Text("Here's the settlement breakdown:")
+                    ) {
+                        HStack {
+                            Image(systemName: "square.and.arrow.up")
+                            Text("Share Settlement")
+                        }
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.accent)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(AppTheme.accent, lineWidth: 1.5)
+                        )
+                    }
+                    
                     AccentButton(title: "Return to Home") {
                         dismiss()
                     }
@@ -73,5 +93,17 @@ struct SettlementView: View {
                 .padding()
             }
         }
+    }
+    
+    // MARK: - Settlement Text for Sharing
+    
+    private var settlementText: String {
+        let transactions = viewModel.generateTransactions()
+        var lines: [String] = ["🃏 Poker Settlement"]
+        lines.append("---")
+        for t in transactions {
+            lines.append("\(t.from) → \(t.to): ₪\(String(format: "%.0f", t.amount))")
+        }
+        return lines.joined(separator: "\n")
     }
 }

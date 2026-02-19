@@ -4,6 +4,8 @@ import SwiftData
 import Charts
 
 struct HistoryView: View {
+    let currencySymbol: String
+    
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \GameSession.date, order: .reverse) private var allGames: [GameSession]
     @State private var selectedGame: GameSession?
@@ -58,7 +60,7 @@ struct HistoryView: View {
                                             .foregroundStyle(Color.white.opacity(0.2))
                                         AxisValueLabel() {
                                             if let intValue = value.as(Int.self) {
-                                                Text("₪\(intValue)")
+                                                Text("\(currencySymbol)\(intValue)")
                                                     .foregroundStyle(AppTheme.textSecondary)
                                             }
                                         }
@@ -85,10 +87,10 @@ struct HistoryView: View {
                                 let totalPotAllTime = completedGames.reduce(0) { $0 + $1.totalPot }
                                 let avgPot = completedGames.isEmpty ? 0 : totalPotAllTime / Double(completedGames.count)
                                 
-                                StatCard(title: "Total Pot", value: "₪\(String(format: "%.0f", totalPotAllTime))", icon: "banknote", trend: nil)
+                                StatCard(title: "Total Pot", value: "\(currencySymbol)\(String(format: "%.0f", totalPotAllTime))", icon: "banknote", trend: nil)
                                     .frame(width: 150)
                                 
-                                StatCard(title: "Avg Pot", value: "₪\(String(format: "%.0f", avgPot))", icon: "chart.bar", trend: nil)
+                                StatCard(title: "Avg Pot", value: "\(currencySymbol)\(String(format: "%.0f", avgPot))", icon: "chart.bar", trend: nil)
                                     .frame(width: 150)
 
                                 StatCard(title: "Games", value: "\(completedGames.count)", icon: "gamecontroller", trend: nil)
@@ -97,7 +99,7 @@ struct HistoryView: View {
                                 // Biggest Winner Calculation
                                 let biggestWin = completedGames.flatMap { $0.playerSessions }.map { $0.profitLoss }.max() ?? 0
                                 if biggestWin > 0 {
-                                    StatCard(title: "Best Win", value: "₪\(String(format: "%.0f", biggestWin))", icon: "trophy.fill", trend: nil)
+                                    StatCard(title: "Best Win", value: "\(currencySymbol)\(String(format: "%.0f", biggestWin))", icon: "trophy.fill", trend: nil)
                                         .frame(width: 150)
                                 }
                             }
@@ -144,7 +146,7 @@ struct HistoryView: View {
                                             
                                             Spacer()
                                             
-                                            Text("₪\(String(format: "%.0f", entry.totalProfit))")
+                                            Text("\(currencySymbol)\(String(format: "%.0f", entry.totalProfit))")
                                                 .font(.title3)
                                                 .fontWeight(.bold)
                                                 .foregroundStyle(entry.totalProfit >= 0 ? AppTheme.profit : AppTheme.loss)
@@ -181,7 +183,7 @@ struct HistoryView: View {
                                                 .font(.caption)
                                         }
                                         Spacer()
-                                        Text("₪\(String(format: "%.0f", game.totalPot))")
+                                        Text("\(currencySymbol)\(String(format: "%.0f", game.totalPot))")
                                             .foregroundStyle(AppTheme.accent)
                                             .fontWeight(.bold)
                                         
@@ -266,5 +268,5 @@ struct HistoryView: View {
 }
 
 #Preview {
-    HistoryView()
+    HistoryView(currencySymbol: "₪")
 }

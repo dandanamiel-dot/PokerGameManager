@@ -18,9 +18,15 @@ class FirebaseService: ObservableObject {
     @Published var viewerCount: Int = 0
     @Published var connectionError: String?
     
+    // Group state
+    @Published var userGroups: [PokerGroup] = []
+    @Published var activeGroup: PokerGroup?
+    
     // MARK: - Private
     private let db = Firestore.firestore()
     private var roomListener: ListenerRegistration?
+    private var groupListener: ListenerRegistration?
+    private var groupsListener: ListenerRegistration?
     
     private init() {
         signInAnonymously()
@@ -219,6 +225,193 @@ class FirebaseService: ObservableObject {
         db.collection("rooms").document(code).delete()
         leaveRoom()
     }
+    
+    // MARK: - Group Code Generation
+    
+    /// Generate a 6-char alphanumeric group code like "PKR-A3F"
+    private func generateGroupCode() -> String {
+        let chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no I/O/0/1 for clarity
+        let part1 = "PKR"
+        let part2 = String((0..<3).map { _ in chars.randomElement()! })
+        return "\(part1)-\(part2)"
+    }
+    
+    // MARK: - Group: Create
+    
+    /// Create a new poker group
+    func createGroup(name: String, displayName: String, currency: CurrencyOption = .ILS, defaultBuyIn: Double? = nil, completion: @escaping (Result<PokerGroup, Error>) -> Void) {
+        guard let userId = currentUserId else {
+            completion(.failure(FirebaseServiceError.notAuthenticated))
+            return
+        }
+        
+        let code = generateGroupCode()
+        var group = PokerGroup(groupId: code, name: name, createdBy: userId, currency: currency, defaultBuyIn: defaultBuyIn)
+        group.memberNames[userId] = displayName
+        
+        let docRef = db.collection("groups").document(code)
+        docRef.getDocument { [weak self] snapshot, error in
+            if let snapshot = snapshot, snapshot.exists {
+                // Code collision — retry
+                self?.createGroup(name: name, displayName: displayName, completion: completion)
+                return
+            }
+            
+            do {
+                try docRef.setData(from: group) { error in
+                    DispatchQueue.main.async {
+                        if let error = error {
+                            completion(.failure(error))
+                        } else {
+                            self?.userGroups.append(group)
+                            self?.activeGroup = group
+                            self?.listenToGroup(groupId: code)
+                            completion(.success(group))
+                        }
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+    
+    // MARK: - Group: Join
+    
+    /// Join an existing group by code
+    func joinGroup(code: String, displayName: String, completion: @escaping (Result<PokerGroup, Error>) -> Void) {
+        guard let userId = currentUserId else {
+            completion(.failure(FirebaseServiceError.notAuthenticated))
+            return
+        }
+        
+        let docRef = db.collection("groups").document(code.uppercased())
+        docRef.getDocument(as: PokerGroup.self) { [weak self] result in
+            switch result {
+            case .success(var group):
+                if group.memberIds.contains(userId) {
+                    // Already a member
+                    DispatchQueue.main.async {
+                        self?.activeGroup = group
+                        self?.listenToGroup(groupId: code.uppercased())
+                        completion(.success(group))
+                    }
+                    return
+                }
+                
+                // Add user to group
+                group.memberIds.append(userId)
+                group.memberNames[userId] = displayName
+                
+                do {
+                    try docRef.setData(from: group, merge: true) { error in
+                        DispatchQueue.main.async {
+                            if let error = error {
+                                completion(.failure(error))
+                            } else {
+                                self?.userGroups.append(group)
+                                self?.activeGroup = group
+                                self?.listenToGroup(groupId: code.uppercased())
+                                completion(.success(group))
+                            }
+                        }
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        completion(.failure(error))
+                    }
+                }
+                
+            case .failure:
+                DispatchQueue.main.async {
+                    completion(.failure(FirebaseServiceError.groupNotFound))
+                }
+            }
+        }
+    }
+    
+    // MARK: - Group: Leave
+    
+    /// Leave the active group
+    func leaveGroup(groupId: String) {
+        guard let userId = currentUserId else { return }
+        
+        let docRef = db.collection("groups").document(groupId)
+        docRef.updateData([
+            "memberIds": FieldValue.arrayRemove([userId]),
+            "memberNames.\(userId)": FieldValue.delete()
+        ])
+        
+        stopGroupListener()
+        DispatchQueue.main.async {
+            self.userGroups.removeAll { $0.groupId == groupId }
+            if self.activeGroup?.groupId == groupId {
+                self.activeGroup = nil
+            }
+        }
+    }
+    
+    // MARK: - Group: Load User's Groups
+    
+    /// Load all groups the current user belongs to
+    func loadUserGroups() {
+        guard let userId = currentUserId else { return }
+        
+        stopGroupsListener()
+        
+        groupsListener = db.collection("groups")
+            .whereField("memberIds", arrayContains: userId)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let documents = snapshot?.documents else { return }
+                
+                let groups = documents.compactMap { doc in
+                    try? doc.data(as: PokerGroup.self)
+                }
+                
+                DispatchQueue.main.async {
+                    self?.userGroups = groups
+                }
+            }
+    }
+    
+    // MARK: - Group: Real-time Listener
+    
+    /// Listen to real-time updates for a specific group
+    func listenToGroup(groupId: String) {
+        stopGroupListener()
+        
+        groupListener = db.collection("groups").document(groupId)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let data = snapshot, data.exists else { return }
+                
+                do {
+                    let group = try data.data(as: PokerGroup.self)
+                    DispatchQueue.main.async {
+                        self?.activeGroup = group
+                        // Also update in the list
+                        if let index = self?.userGroups.firstIndex(where: { $0.groupId == groupId }) {
+                            self?.userGroups[index] = group
+                        }
+                    }
+                } catch {
+                    print("Failed to decode group update: \(error)")
+                }
+            }
+    }
+    
+    /// Stop group listener
+    private func stopGroupListener() {
+        groupListener?.remove()
+        groupListener = nil
+    }
+    
+    /// Stop groups list listener
+    private func stopGroupsListener() {
+        groupsListener?.remove()
+        groupsListener = nil
+    }
 }
 
 // MARK: - Errors
@@ -227,6 +420,7 @@ enum FirebaseServiceError: LocalizedError {
     case notAuthenticated
     case roomNotFound
     case roomExpired
+    case groupNotFound
     
     var errorDescription: String? {
         switch self {
@@ -236,6 +430,8 @@ enum FirebaseServiceError: LocalizedError {
             return "Room not found. Check the code and try again."
         case .roomExpired:
             return "This game room has expired."
+        case .groupNotFound:
+            return "Group not found. Check the code and try again."
         }
     }
 }
