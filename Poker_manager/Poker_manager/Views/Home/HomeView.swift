@@ -5,10 +5,11 @@ import SwiftData
 struct HomeView: View {
     let group: PokerGroup?
     let currencySymbol: String
+    let groupId: String
     var onExit: (() -> Void)?
     
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \GameSession.date, order: .reverse) private var recentGames: [GameSession]
+    @Query private var recentGames: [GameSession]
     @ObservedObject private var firebaseService = FirebaseService.shared
     
     @State private var showNewGameSheet = false
@@ -17,6 +18,19 @@ struct HomeView: View {
     @State private var showCreateGroup = false
     @State private var showJoinGroup = false
     @State private var selectedGroup: PokerGroup?
+    
+    init(group: PokerGroup?, currencySymbol: String, groupId: String, onExit: (() -> Void)? = nil) {
+        self.group = group
+        self.currencySymbol = currencySymbol
+        self.groupId = groupId
+        self.onExit = onExit
+        let gId = groupId
+        _recentGames = Query(
+            filter: #Predicate<GameSession> { $0.groupId == gId },
+            sort: \GameSession.date,
+            order: .reverse
+        )
+    }
     
     var activeGame: GameSession? {
         recentGames.first(where: { $0.status == .active })
@@ -75,10 +89,9 @@ struct HomeView: View {
                     }
                     .padding(.top, 60)
                     
-                    // MARK: - Groups Section (only in group mode or when user has groups)
+                    // MARK: - Groups Section (only in local mode)
                     
                     if group == nil {
-                        // Quick-start mode — show groups section if user has any
                         if firebaseService.userGroups.isEmpty {
                             GlowCard {
                                 VStack(spacing: 16) {
@@ -133,7 +146,6 @@ struct HomeView: View {
                                 .frame(maxWidth: .infinity)
                             }
                         } else {
-                            // Has groups — show group cards
                             VStack(alignment: .leading, spacing: 16) {
                                 HStack {
                                     Text("My Groups")
@@ -295,7 +307,7 @@ struct HomeView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 100)
                 .sheet(isPresented: $showNewGameSheet) {
-                    NewGameSheet()
+                    NewGameSheet(groupId: groupId)
                 }
                 .sheet(item: $gameToEdit) { game in
                     EditGameSheet(game: game)
@@ -335,5 +347,5 @@ struct HomeView: View {
 }
 
 #Preview {
-    HomeView(group: nil, currencySymbol: "₪")
+    HomeView(group: nil, currencySymbol: "₪", groupId: "local")
 }

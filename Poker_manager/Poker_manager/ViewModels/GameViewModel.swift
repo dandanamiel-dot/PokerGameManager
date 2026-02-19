@@ -10,16 +10,22 @@ class GameViewModel: ObservableObject {
     @Published var showSettlementView = false
     
     private var modelContext: ModelContext
+    private let groupId: String
     
     init(modelContext: ModelContext, session: GameSession) {
         self.modelContext = modelContext
         self.activeSession = session
+        self.groupId = session.groupId
         fetchPlayers()
     }
     
     func fetchPlayers() {
+        let gId = groupId
         do {
-            availablePlayers = try modelContext.fetch(FetchDescriptor<Player>())
+            let descriptor = FetchDescriptor<Player>(
+                predicate: #Predicate { $0.groupId == gId }
+            )
+            availablePlayers = try modelContext.fetch(descriptor)
         } catch {
             print("Failed to fetch players")
         }

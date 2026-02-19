@@ -5,11 +5,23 @@ import Charts
 
 struct HistoryView: View {
     let currencySymbol: String
+    let groupId: String
     
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \GameSession.date, order: .reverse) private var allGames: [GameSession]
+    @Query private var allGames: [GameSession]
     @State private var selectedGame: GameSession?
     @State private var gameToEdit: GameSession?
+    
+    init(currencySymbol: String, groupId: String) {
+        self.currencySymbol = currencySymbol
+        self.groupId = groupId
+        let gId = groupId
+        _allGames = Query(
+            filter: #Predicate<GameSession> { $0.groupId == gId },
+            sort: \GameSession.date,
+            order: .reverse
+        )
+    }
     
     var completedGames: [GameSession] {
         allGames.filter { $0.status == .completed }
@@ -268,5 +280,5 @@ struct HistoryView: View {
 }
 
 #Preview {
-    HistoryView(currencySymbol: "₪")
+    HistoryView(currencySymbol: "₪", groupId: "local")
 }

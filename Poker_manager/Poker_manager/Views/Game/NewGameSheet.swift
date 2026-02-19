@@ -3,12 +3,23 @@ import SwiftUI
 import SwiftData
 
 struct NewGameSheet: View {
+    let groupId: String
+    
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
-    @Query(sort: \Player.name) private var players: [Player]
+    @Query private var players: [Player]
     @State private var selectedPlayers: Set<Player> = []
     @State private var buyInAmount: String = "500" // Default buy-in
+    
+    init(groupId: String = "local") {
+        self.groupId = groupId
+        let gId = groupId
+        _players = Query(
+            filter: #Predicate<Player> { $0.groupId == gId },
+            sort: \Player.name
+        )
+    }
     
     var body: some View {
         NavigationView {
@@ -42,7 +53,7 @@ struct NewGameSheet: View {
                             Text("Select Players")
                                 .foregroundStyle(AppTheme.textSecondary)
                             Spacer()
-                            NavigationLink(destination: AddPlayerView()) {
+                            NavigationLink(destination: AddPlayerView(groupId: groupId)) {
                                 Image(systemName: "person.badge.plus")
                                     .foregroundStyle(AppTheme.accent)
                             }
@@ -97,7 +108,7 @@ struct NewGameSheet: View {
     }
     
     private func startGame() {
-        let game = GameSession()
+        let game = GameSession(groupId: groupId)
         let initialAmount = Double(buyInAmount) ?? 0
         
         for player in selectedPlayers {
@@ -106,8 +117,6 @@ struct NewGameSheet: View {
                 session.addBuyIn(amount: initialAmount)
             }
             game.playerSessions.append(session)
-            // session is automatically inserted when added to game.playerSessions relationship?
-            // Safer to insert explicitly if issues arise, but SwiftData usually handles it.
         }
         
         modelContext.insert(game)
@@ -118,9 +127,15 @@ struct NewGameSheet: View {
 
 // Simple internal view for adding a player on the fly
 struct AddPlayerView: View {
+    let groupId: String
+    
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
+    
+    init(groupId: String = "local") {
+        self.groupId = groupId
+    }
     
     var body: some View {
         ZStack {
@@ -138,7 +153,7 @@ struct AddPlayerView: View {
                     .padding()
                 
                 AccentButton(title: "Save Player") {
-                    let player = Player(name: name)
+                    let player = Player(name: name, groupId: groupId)
                     modelContext.insert(player)
                     dismiss()
                 }

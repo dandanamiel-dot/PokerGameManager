@@ -8,12 +8,22 @@ struct GroupDashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var firebaseService = FirebaseService.shared
-    @Query(sort: \GameSession.date, order: .reverse) private var allGames: [GameSession]
+    @Query private var allGames: [GameSession]
     
     @State private var showNewGameSheet = false
     @State private var showSettings = false
     @State private var selectedGame: GameSession?
     @State private var codeCopied = false
+    
+    init(group: PokerGroup) {
+        self.group = group
+        let gId = group.groupId
+        _allGames = Query(
+            filter: #Predicate<GameSession> { $0.groupId == gId },
+            sort: \GameSession.date,
+            order: .reverse
+        )
+    }
     
     var body: some View {
         ZStack {
@@ -47,7 +57,7 @@ struct GroupDashboardView: View {
             }
         }
         .sheet(isPresented: $showNewGameSheet) {
-            NewGameSheet()
+            NewGameSheet(groupId: group.groupId)
         }
         .sheet(isPresented: $showSettings) {
             GroupSettingsSheet(group: group)

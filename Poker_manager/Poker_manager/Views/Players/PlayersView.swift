@@ -3,12 +3,23 @@ import SwiftUI
 import SwiftData
 
 struct PlayersView: View {
+    let groupId: String
+    
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Player.name) private var players: [Player]
+    @Query private var players: [Player]
     @State private var showAddPlayer = false
     @State private var playerToEdit: Player?
     @State private var playerToDelete: Player?
     @State private var showDeleteConfirmation = false
+    
+    init(groupId: String) {
+        self.groupId = groupId
+        let gId = groupId
+        _players = Query(
+            filter: #Predicate<Player> { $0.groupId == gId },
+            sort: \Player.name
+        )
+    }
     
     var body: some View {
         NavigationView {
@@ -81,7 +92,7 @@ struct PlayersView: View {
             .navigationBarHidden(true)
         }
         .sheet(isPresented: $showAddPlayer) {
-            AddPlayerView()
+            AddPlayerView(groupId: groupId)
         }
         .sheet(item: $playerToEdit) { player in
             EditPlayerSheet(player: player)

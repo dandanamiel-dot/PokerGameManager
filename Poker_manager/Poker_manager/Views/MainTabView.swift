@@ -12,6 +12,11 @@ struct MainTabView: View {
         group?.currencySymbol ?? "₪"
     }
     
+    /// Group ID for data scoping: group code or "local" for quick start
+    var groupId: String {
+        group?.groupId ?? "local"
+    }
+    
     var body: some View {
         ZStack(alignment: .bottom) {
             AppTheme.background
@@ -19,16 +24,16 @@ struct MainTabView: View {
             
             // Main Content
             TabView(selection: $selectedTab) {
-                HomeView(group: group, currencySymbol: currencySymbol, onExit: onExit)
+                HomeView(group: group, currencySymbol: currencySymbol, groupId: groupId, onExit: onExit)
                     .tag(0)
                 
-                LiveGameTabView()
+                LiveGameTabView(groupId: groupId)
                     .tag(1)
                 
-                HistoryView(currencySymbol: currencySymbol)
+                HistoryView(currencySymbol: currencySymbol, groupId: groupId)
                     .tag(2)
                 
-                PlayersView()
+                PlayersView(groupId: groupId)
                     .tag(3)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))

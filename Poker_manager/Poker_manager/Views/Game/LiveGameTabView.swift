@@ -2,11 +2,21 @@ import SwiftUI
 import SwiftData
 
 struct LiveGameTabView: View {
+    let groupId: String
+    
     @Environment(\.modelContext) private var modelContext
     @Query private var allGames: [GameSession]
     @State private var showNewGameSheet = false
     @State private var showJoinGame = false
     @ObservedObject private var firebaseService = FirebaseService.shared
+    
+    init(groupId: String) {
+        self.groupId = groupId
+        let gId = groupId
+        _allGames = Query(
+            filter: #Predicate<GameSession> { $0.groupId == gId }
+        )
+    }
     
     var activeGame: GameSession? {
         allGames.first { $0.status == .active }
@@ -69,7 +79,7 @@ struct LiveGameTabView: View {
                 }
             }
             .sheet(isPresented: $showNewGameSheet) {
-                NewGameSheet()
+                NewGameSheet(groupId: groupId)
             }
         }
     }

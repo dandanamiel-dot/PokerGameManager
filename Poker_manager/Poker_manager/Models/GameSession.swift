@@ -13,16 +13,18 @@ final class GameSession {
     var date: Date
     var status: GameStatus
     var notes: String?
+    var groupId: String
     
     var endedAt: Date?
     
     @Relationship(deleteRule: .cascade)
     var playerSessions: [PlayerSession] = []
     
-    init() {
+    init(groupId: String = "local") {
         self.id = UUID()
         self.date = Date()
         self.status = .active
+        self.groupId = groupId
     }
     
     var totalPot: Double {
