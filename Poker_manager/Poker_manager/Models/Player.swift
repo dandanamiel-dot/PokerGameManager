@@ -8,7 +8,7 @@ final class Player {
     var name: String
     var avatar: String // SF Symbol name
     var createdAt: Date
-    var groupId: String
+    var groupId: String = "local"
     
     @Relationship(deleteRule: .cascade, inverse: \PlayerSession.player)
     var sessions: [PlayerSession] = []

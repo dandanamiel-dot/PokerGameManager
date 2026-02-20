@@ -9,7 +9,7 @@ struct NewGameSheet: View {
     @Environment(\.dismiss) private var dismiss
     
     @Query private var players: [Player]
-    @State private var selectedPlayers: Set<Player> = []
+    @State private var selectedPlayerIds: Set<UUID> = []
     @State private var buyInAmount: String = "500" // Default buy-in
     @State private var showAddPlayer = false
     
@@ -67,16 +67,16 @@ struct NewGameSheet: View {
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
                                 ForEach(players) { player in
                                     Button {
-                                        if selectedPlayers.contains(player) {
-                                            selectedPlayers.remove(player)
+                                        if selectedPlayerIds.contains(player.id) {
+                                            selectedPlayerIds.remove(player.id)
                                         } else {
-                                            selectedPlayers.insert(player)
+                                            selectedPlayerIds.insert(player.id)
                                         }
                                     } label: {
                                         VStack {
                                             Image(systemName: player.avatar)
                                                 .font(.largeTitle)
-                                                .foregroundStyle(selectedPlayers.contains(player) ? AppTheme.accent : .gray)
+                                                .foregroundStyle(selectedPlayerIds.contains(player.id) ? AppTheme.accent : .gray)
                                             Text(player.name)
                                                 .font(.caption)
                                                 .foregroundStyle(.white)
@@ -85,8 +85,8 @@ struct NewGameSheet: View {
                                         .frame(maxWidth: .infinity)
                                         .background(
                                             RoundedRectangle(cornerRadius: 12)
-                                                .fill(selectedPlayers.contains(player) ? AppTheme.accent.opacity(0.1) : AppTheme.cardBackground)
-                                                .stroke(selectedPlayers.contains(player) ? AppTheme.accent : Color.clear, lineWidth: 2)
+                                                .fill(selectedPlayerIds.contains(player.id) ? AppTheme.accent.opacity(0.1) : AppTheme.cardBackground)
+                                                .stroke(selectedPlayerIds.contains(player.id) ? AppTheme.accent : Color.clear, lineWidth: 2)
                                         )
                                     }
                                 }
@@ -100,8 +100,8 @@ struct NewGameSheet: View {
                     AccentButton(title: "Start Game") {
                         startGame()
                     }
-                    .disabled(selectedPlayers.isEmpty)
-                    .opacity(selectedPlayers.isEmpty ? 0.5 : 1)
+                    .disabled(selectedPlayerIds.isEmpty)
+                    .opacity(selectedPlayerIds.isEmpty ? 0.5 : 1)
                     .padding(.bottom)
                 }
             }
@@ -117,7 +117,8 @@ struct NewGameSheet: View {
         let game = GameSession(groupId: groupId)
         let initialAmount = Double(buyInAmount) ?? 0
         
-        for player in selectedPlayers {
+        let selected = players.filter { selectedPlayerIds.contains($0.id) }
+        for player in selected {
             let session = PlayerSession(player: player)
             if initialAmount > 0 {
                 session.addBuyIn(amount: initialAmount)

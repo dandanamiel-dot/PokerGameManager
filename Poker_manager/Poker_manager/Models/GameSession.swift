@@ -13,7 +13,7 @@ final class GameSession {
     var date: Date
     var status: GameStatus
     var notes: String?
-    var groupId: String
+    var groupId: String = "local"
     
     var endedAt: Date?
     
