@@ -108,7 +108,8 @@ struct GameSessionView: View {
                         .padding()
                     }
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.top, 44)
                 
                 ScrollView {
                     VStack(spacing: 24) {
@@ -280,7 +281,7 @@ struct GameSessionView: View {
                             }
                         }
                     }
-                    .padding(.bottom, 40)
+                    .padding(.bottom, 100)
                 }
             }
         }
