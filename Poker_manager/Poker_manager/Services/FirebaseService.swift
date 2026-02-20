@@ -353,6 +353,87 @@ class FirebaseService: ObservableObject {
         }
     }
     
+    // MARK: - Group: Delete (Host only)
+    
+    /// Delete the entire group (must be the creator)
+    func deleteGroup(groupId: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let userId = currentUserId else {
+            completion(.failure(FirebaseServiceError.notAuthenticated))
+            return
+        }
+        
+        let docRef = db.collection("groups").document(groupId)
+        docRef.getDocument(as: PokerGroup.self) { [weak self] result in
+            switch result {
+            case .success(let group):
+                guard group.createdBy == userId else {
+                    completion(.failure(FirebaseServiceError.notAuthorized))
+                    return
+                }
+                docRef.delete { error in
+                    DispatchQueue.main.async {
+                        if let error = error {
+                            completion(.failure(error))
+                        } else {
+                            self?.stopGroupListener()
+                            self?.userGroups.removeAll { $0.groupId == groupId }
+                            if self?.activeGroup?.groupId == groupId {
+                                self?.activeGroup = nil
+                            }
+                            completion(.success(()))
+                        }
+                    }
+                }
+            case .failure(let error):
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+    
+    // MARK: - Group: Remove Member (Host only)
+    
+    /// Remove a member from the group (must be the creator)
+    func removeMember(groupId: String, memberUid: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let userId = currentUserId else {
+            completion(.failure(FirebaseServiceError.notAuthenticated))
+            return
+        }
+        
+        let docRef = db.collection("groups").document(groupId)
+        docRef.getDocument(as: PokerGroup.self) { result in
+            switch result {
+            case .success(let group):
+                guard group.createdBy == userId else {
+                    completion(.failure(FirebaseServiceError.notAuthorized))
+                    return
+                }
+                guard memberUid != userId else {
+                    // Can't remove yourself — use leaveGroup instead
+                    completion(.failure(FirebaseServiceError.notAuthorized))
+                    return
+                }
+                docRef.updateData([
+                    "memberIds": FieldValue.arrayRemove([memberUid]),
+                    "memberNames.\(memberUid)": FieldValue.delete()
+                ]) { error in
+                    DispatchQueue.main.async {
+                        if let error = error {
+                            completion(.failure(error))
+                        } else {
+                            completion(.success(()))
+                        }
+                    }
+                }
+            case .failure(let error):
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+    
     // MARK: - Group: Load User's Groups
     
     /// Load all groups the current user belongs to
@@ -418,6 +499,7 @@ class FirebaseService: ObservableObject {
 
 enum FirebaseServiceError: LocalizedError {
     case notAuthenticated
+    case notAuthorized
     case roomNotFound
     case roomExpired
     case groupNotFound
@@ -426,6 +508,8 @@ enum FirebaseServiceError: LocalizedError {
         switch self {
         case .notAuthenticated:
             return "Not signed in. Please restart the app."
+        case .notAuthorized:
+            return "You don't have permission to perform this action."
         case .roomNotFound:
             return "Room not found. Check the code and try again."
         case .roomExpired:

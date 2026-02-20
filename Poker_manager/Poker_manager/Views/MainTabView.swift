@@ -1,10 +1,13 @@
 
 import SwiftUI
+import SwiftData
 
 struct MainTabView: View {
     let group: PokerGroup?
     var onExit: (() -> Void)?
     
+    @Environment(\.modelContext) private var modelContext
+    @ObservedObject private var firebaseService = FirebaseService.shared
     @State private var selectedTab = 0
     
     /// Currency symbol: from group if available, otherwise default ₪
@@ -42,6 +45,44 @@ struct MainTabView: View {
             // Custom Tab Bar
             FloatingTabBar(selectedTab: $selectedTab)
                 .padding(.bottom, 20)
+        }
+        .onAppear {
+            syncGroupMembersToPlayers()
+        }
+        .onChange(of: firebaseService.activeGroup) { _, _ in
+            syncGroupMembersToPlayers()
+        }
+    }
+    
+    /// Creates local SwiftData Player records for each group member
+    /// that doesn't already have a corresponding Player entry.
+    private func syncGroupMembersToPlayers() {
+        // Use the live activeGroup (which updates via Firebase listener) or fall back to initial group
+        guard let activeGroup = firebaseService.activeGroup ?? group else { return }
+        let gId = activeGroup.groupId
+        guard gId != "local" else { return }
+        
+        do {
+            let descriptor = FetchDescriptor<Player>(
+                predicate: #Predicate { $0.groupId == gId }
+            )
+            let existingPlayers = try modelContext.fetch(descriptor)
+            let existingNames = Set(existingPlayers.map { $0.name.lowercased() })
+            
+            var addedAny = false
+            for (_, memberName) in activeGroup.memberNames {
+                if !existingNames.contains(memberName.lowercased()) {
+                    let player = Player(name: memberName, groupId: gId)
+                    modelContext.insert(player)
+                    addedAny = true
+                }
+            }
+            
+            if addedAny {
+                try modelContext.save()
+            }
+        } catch {
+            print("Failed to sync group members to players: \(error)")
         }
     }
 }
