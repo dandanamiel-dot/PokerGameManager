@@ -40,13 +40,14 @@ struct EndGameSheet: View {
                         VStack(spacing: AppTheme.spacingM) {
                             ForEach($viewModel.activeSession.playerSessions) { $session in
                                 let isFocused = focusedField == session.id
+                                let alreadyCashedOut = session.hasCashedOut
                                 
                                 GlowCard {
                                     HStack(spacing: AppTheme.spacingS) {
                                         // Player icon
                                         Image(systemName: "person.circle.fill")
                                             .font(.title2)
-                                            .foregroundStyle(AppTheme.accent.opacity(0.6))
+                                            .foregroundStyle(alreadyCashedOut ? .orange.opacity(0.6) : AppTheme.accent.opacity(0.6))
                                         
                                         // Player info
                                         VStack(alignment: .leading, spacing: 2) {
@@ -54,43 +55,58 @@ struct EndGameSheet: View {
                                                 .font(.title3)
                                                 .fontWeight(.bold)
                                                 .foregroundStyle(.white)
-                                            Text("Buy-in: ₪\(session.totalBuyIn, specifier: "%.0f")")
-                                                .font(.caption2)
-                                                .foregroundStyle(AppTheme.textSecondary)
+                                            
+                                            if alreadyCashedOut {
+                                                Text("Already Cashed Out")
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.orange)
+                                            } else {
+                                                Text("Buy-in: ₪\(session.totalBuyIn, specifier: "%.0f")")
+                                                    .font(.caption2)
+                                                    .foregroundStyle(AppTheme.textSecondary)
+                                            }
                                         }
                                         
                                         Spacer()
                                         
-                                        // Cash-out input
-                                        TextField("Enter amount", value: Binding(
-                                            get: { session.cashOut ?? 0 },
-                                            set: { session.cashOut = $0 }
-                                        ), format: .number)
-                                        .keyboardType(.numberPad)
-                                        .multilineTextAlignment(.trailing)
-                                        .foregroundStyle(AppTheme.accent)
-                                        .font(.title2)
-                                        .fontWeight(.bold)
-                                        .frame(width: 110)
-                                        .padding(10)
-                                        .background(AppTheme.inputBackground)
-                                        .cornerRadius(8)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .stroke(
-                                                    isFocused ? AppTheme.inputBorderFocused : AppTheme.inputBorderDefault,
-                                                    lineWidth: isFocused ? 2 : 1
-                                                )
-                                        )
-                                        .focused($focusedField, equals: session.id)
-                                        .animation(.easeInOut(duration: 0.2), value: isFocused)
+                                        if alreadyCashedOut {
+                                            // Read-only display for already-cashed-out
+                                            Text("₪\(session.cashOut ?? 0, specifier: "%.0f")")
+                                                .font(.title2.bold())
+                                                .foregroundStyle(.orange.opacity(0.8))
+                                                .frame(width: 110, alignment: .trailing)
+                                        } else {
+                                            // Editable cash-out input
+                                            TextField("Enter amount", value: Binding(
+                                                get: { session.cashOut ?? 0 },
+                                                set: { session.cashOut = $0 }
+                                            ), format: .number)
+                                            .keyboardType(.numberPad)
+                                            .multilineTextAlignment(.trailing)
+                                            .foregroundStyle(AppTheme.accent)
+                                            .font(.title2)
+                                            .fontWeight(.bold)
+                                            .frame(width: 110)
+                                            .padding(10)
+                                            .background(AppTheme.inputBackground)
+                                            .cornerRadius(8)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .stroke(
+                                                        isFocused ? AppTheme.inputBorderFocused : AppTheme.inputBorderDefault,
+                                                        lineWidth: isFocused ? 2 : 1
+                                                    )
+                                            )
+                                            .focused($focusedField, equals: session.id)
+                                            .animation(.easeInOut(duration: 0.2), value: isFocused)
+                                        }
                                     }
                                     .padding()
                                 }
                                 .frame(minHeight: 64)
                                 
                                 // Per-field validation hint
-                                if let co = session.cashOut, co > session.totalBuyIn * 5, session.totalBuyIn > 0 {
+                                if !alreadyCashedOut, let co = session.cashOut, co > session.totalBuyIn * 5, session.totalBuyIn > 0 {
                                     Text("⚠️ Unusually high — double-check this value")
                                         .font(.caption2)
                                         .foregroundStyle(AppTheme.loss.opacity(0.8))

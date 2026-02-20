@@ -9,6 +9,7 @@ struct GameSessionView: View {
     
     @StateObject private var viewModel: GameViewModel
     @State private var showAddBuyIn = false
+    @State private var showCashOut = false
     @State private var showEndGame = false
     @State private var showShareRoom = false
     @State private var isCreatingRoom = false
@@ -131,6 +132,27 @@ struct GameSessionView: View {
                             HStack(spacing: 16) {
                                 AccentButton(title: "Buy In", icon: "plus.circle.fill") {
                                     showAddBuyIn = true
+                                }
+                                
+                                Button {
+                                    showCashOut = true
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "banknote")
+                                        Text("Cash Out")
+                                    }
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(.white)
+                                    .padding(.vertical, 12)
+                                    .padding(.horizontal, 24)
+                                    .background(
+                                        LinearGradient(
+                                            colors: [Color.orange.opacity(0.8), Color.orange.opacity(0.5)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .cornerRadius(30)
                                 }
                                 
                                 Button {
@@ -264,12 +286,24 @@ struct GameSessionView: View {
                             
                             ForEach(viewModel.activeSession.playerSessions) { session in
                                 if viewModel.activeSession.status == .active {
-                                    PlayerRow(
-                                        name: session.player?.name ?? "Unknown",
-                                        detail: "\(session.buyIns.count) buy-ins",
-                                        amount: "₪\(String(format: "%.0f", session.totalBuyIn))",
-                                        isPositive: true
-                                    )
+                                    HStack {
+                                        PlayerRow(
+                                            name: session.player?.name ?? "Unknown",
+                                            detail: "\(session.buyIns.count) buy-ins",
+                                            amount: "₪\(String(format: "%.0f", session.totalBuyIn))",
+                                            isPositive: true
+                                        )
+                                        
+                                        if session.hasCashedOut {
+                                            Text("Out ₪\(String(format: "%.0f", session.cashOut ?? 0))")
+                                                .font(.caption.bold())
+                                                .foregroundStyle(.orange)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 4)
+                                                .background(Color.orange.opacity(0.15))
+                                                .clipShape(Capsule())
+                                        }
+                                    }
                                 } else {
                                     PlayerRow(
                                         name: session.player?.name ?? "Unknown",
@@ -289,6 +323,14 @@ struct GameSessionView: View {
             AddBuyInSheet(viewModel: viewModel)
                 .onDisappear {
                     // Sync to Firebase after buy-in
+                    if firebaseService.isHost && firebaseService.roomCode != nil {
+                        firebaseService.syncRoom(from: viewModel.activeSession)
+                    }
+                }
+        }
+        .sheet(isPresented: $showCashOut) {
+            CashOutSheet(viewModel: viewModel)
+                .onDisappear {
                     if firebaseService.isHost && firebaseService.roomCode != nil {
                         firebaseService.syncRoom(from: viewModel.activeSession)
                     }

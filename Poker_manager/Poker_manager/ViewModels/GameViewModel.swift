@@ -53,6 +53,13 @@ class GameViewModel: ObservableObject {
         activeSession.endedAt = Date()
         try? modelContext.save()
     }
+    
+    /// Cash out a player mid-game
+    func cashOutPlayer(session: PlayerSession, amount: Double) {
+        session.cashOut = amount
+        try? modelContext.save()
+        objectWillChange.send()
+    }
 
     struct SettlementTransaction: Identifiable {
         let id = UUID()

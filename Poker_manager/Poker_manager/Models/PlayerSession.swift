@@ -14,6 +14,9 @@ final class PlayerSession {
     
     var cashOut: Double? // Nil means still playing or game not ended for this player
     
+    /// Whether this player has cashed out (mid-game or end-game)
+    var hasCashedOut: Bool { cashOut != nil }
+    
     // Inverse relationship to GameSession is inferred, but we can't strongly type it 
     // without circular dependency issues in some SwiftData versions, 
     // but usually it's fine. Let's rely on GameSession owning PlayerSession.
