@@ -11,6 +11,7 @@ struct NewGameSheet: View {
     @Query private var players: [Player]
     @State private var selectedPlayers: Set<Player> = []
     @State private var buyInAmount: String = "500" // Default buy-in
+    @State private var showAddPlayer = false
     
     init(groupId: String = "local") {
         self.groupId = groupId
@@ -53,7 +54,9 @@ struct NewGameSheet: View {
                             Text("Select Players")
                                 .foregroundStyle(AppTheme.textSecondary)
                             Spacer()
-                            NavigationLink(destination: AddPlayerView(groupId: groupId)) {
+                            Button {
+                                showAddPlayer = true
+                            } label: {
                                 Image(systemName: "person.badge.plus")
                                     .foregroundStyle(AppTheme.accent)
                             }
@@ -105,6 +108,9 @@ struct NewGameSheet: View {
             .navigationTitle("")
             .navigationBarHidden(true)
         }
+        .sheet(isPresented: $showAddPlayer) {
+            AddPlayerView(groupId: groupId)
+        }
     }
     
     private func startGame() {
@@ -125,40 +131,75 @@ struct NewGameSheet: View {
     }
 }
 
-// Simple internal view for adding a player on the fly
+// View for adding a player on the fly
 struct AddPlayerView: View {
     let groupId: String
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
+    @FocusState private var nameFieldFocused: Bool
     
     init(groupId: String = "local") {
         self.groupId = groupId
     }
     
     var body: some View {
-        ZStack {
-            AppTheme.background.ignoresSafeArea()
-            VStack(spacing: 20) {
-                Text("Add New Player")
-                    .font(.title)
-                    .foregroundStyle(.white)
+        NavigationView {
+            ZStack {
+                AppTheme.background.ignoresSafeArea()
                 
-                TextField("Player Name", text: $name)
-                    .padding()
-                    .background(AppTheme.cardBackground)
-                    .cornerRadius(12)
-                    .foregroundStyle(.white)
-                    .padding()
-                
-                AccentButton(title: "Save Player") {
-                    let player = Player(name: name, groupId: groupId)
-                    modelContext.insert(player)
-                    dismiss()
+                VStack(spacing: 24) {
+                    Image(systemName: "person.crop.circle.badge.plus")
+                        .font(.system(size: 50))
+                        .foregroundStyle(AppTheme.accent)
+                        .padding(.top, 20)
+                    
+                    Text("Add New Player")
+                        .font(.title2.bold())
+                        .foregroundStyle(.white)
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Player Name")
+                            .font(.caption)
+                            .foregroundStyle(.gray)
+                        
+                        TextField("e.g. Alex", text: $name)
+                            .foregroundStyle(.white)
+                            .padding()
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(AppTheme.accent.opacity(0.3), lineWidth: 1)
+                            )
+                            .focused($nameFieldFocused)
+                    }
+                    .padding(.horizontal, 24)
+                    
+                    AccentButton(title: "Save Player", icon: "checkmark") {
+                        let player = Player(name: name.trimmingCharacters(in: .whitespaces), groupId: groupId)
+                        modelContext.insert(player)
+                        try? modelContext.save()
+                        dismiss()
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .opacity(name.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
+                    
+                    Spacer()
                 }
-                .disabled(name.isEmpty)
             }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+        .onAppear {
+            nameFieldFocused = true
         }
     }
 }
