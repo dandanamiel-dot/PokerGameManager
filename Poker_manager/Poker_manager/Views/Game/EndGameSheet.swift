@@ -40,14 +40,14 @@ struct EndGameSheet: View {
                         VStack(spacing: AppTheme.spacingM) {
                             ForEach($viewModel.activeSession.playerSessions) { $session in
                                 let isFocused = focusedField == session.id
-                                let alreadyCashedOut = session.hasCashedOut
+                                let alreadyCashedOut = session.cashOutTime != nil
                                 
                                 GlowCard {
                                     HStack(spacing: AppTheme.spacingS) {
                                         // Player icon
                                         Image(systemName: "person.circle.fill")
                                             .font(.title2)
-                                            .foregroundStyle(alreadyCashedOut ? .orange.opacity(0.6) : AppTheme.accent.opacity(0.6))
+                                            .foregroundStyle(alreadyCashedOut ? AppTheme.accent.opacity(0.3) : AppTheme.accent.opacity(0.6))
                                         
                                         // Player info
                                         VStack(alignment: .leading, spacing: 2) {
@@ -57,9 +57,13 @@ struct EndGameSheet: View {
                                                 .foregroundStyle(.white)
                                             
                                             if alreadyCashedOut {
-                                                Text("Already Cashed Out")
+                                                Text("Cashed Out Mid-Game")
                                                     .font(.caption2)
-                                                    .foregroundStyle(.orange)
+                                                    .foregroundStyle(AppTheme.accent)
+                                                    .padding(.horizontal, 6)
+                                                    .padding(.vertical, 2)
+                                                    .background(AppTheme.accent.opacity(0.12))
+                                                    .clipShape(Capsule())
                                             } else {
                                                 Text("Buy-in: ₪\(session.totalBuyIn, specifier: "%.0f")")
                                                     .font(.caption2)
@@ -73,7 +77,7 @@ struct EndGameSheet: View {
                                             // Read-only display for already-cashed-out
                                             Text("₪\(session.cashOut ?? 0, specifier: "%.0f")")
                                                 .font(.title2.bold())
-                                                .foregroundStyle(.orange.opacity(0.8))
+                                                .foregroundStyle(AppTheme.accent.opacity(0.5))
                                                 .frame(width: 110, alignment: .trailing)
                                         } else {
                                             // Editable cash-out input
