@@ -295,6 +295,7 @@ struct GameSessionView: View {
                                         }
                                     }
                                     .chartXSelection(value: $selectedDate)
+                                    .sensoryFeedback(.selection, trigger: selectedDate)
                                     .frame(height: 180)
                                     .chartYAxis {
                                         AxisMarks(position: .leading) { value in

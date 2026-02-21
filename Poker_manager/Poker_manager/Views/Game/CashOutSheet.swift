@@ -24,8 +24,9 @@ struct CashOutSheet: View {
         ZStack {
             AppTheme.background.ignoresSafeArea()
             
-            VStack(spacing: 24) {
-                Text("Cash Out")
+            ScrollView {
+                VStack(spacing: 24) {
+                    Text("Cash Out")
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundStyle(.white)
@@ -37,8 +38,7 @@ struct CashOutSheet: View {
                     .multilineTextAlignment(.center)
                 
                 // Player Selection (only active players)
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 16) {
+                LazyVGrid(columns: columns, spacing: 16) {
                         ForEach(activeSessions) { session in
                             let player = session.player
                             Button {
@@ -65,10 +65,9 @@ struct CashOutSheet: View {
                             }
                         }
                     }
-                    .padding()
-                }
-                
-                // Chip Count Input
+                    .padding(.horizontal)
+                    
+                    // Chip Count Input
                 VStack(spacing: 8) {
                     Text("Chip Count")
                         .foregroundStyle(AppTheme.textSecondary)
@@ -98,8 +97,6 @@ struct CashOutSheet: View {
                 }
                 .padding()
                 
-                Spacer()
-                
                 // Confirm Button
                 Button {
                     if let session = selectedSession, let value = Double(amount) {
@@ -120,7 +117,9 @@ struct CashOutSheet: View {
                     .shadow(color: canConfirm ? AppTheme.accent.opacity(0.4) : .clear, radius: 10)
                 }
                 .disabled(!canConfirm)
-                .padding(.bottom)
+                .padding(.horizontal)
+                .padding(.bottom, 24)
+            }
             }
         }
         .onAppear {

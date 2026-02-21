@@ -19,15 +19,15 @@ struct AddBuyInSheet: View {
         ZStack {
             AppTheme.background.ignoresSafeArea()
             
-            VStack(spacing: 24) {
-               Text("Add Buy-In")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.white)
-                    .padding(.top)
-                
-                // Player Selection
-                ScrollView {
+            ScrollView {
+                VStack(spacing: 24) {
+                    Text("Add Buy-In")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                        .padding(.top)
+                    
+                    // Player Selection
                     LazyVGrid(columns: columns, spacing: 16) {
                         ForEach(viewModel.availablePlayers) { player in
                             Button {
@@ -51,11 +51,10 @@ struct AddBuyInSheet: View {
                             }
                         }
                     }
-                    .padding()
-                }
-                
-                // Amount Input
-                VStack(spacing: 8) {
+                    .padding(.horizontal)
+                    
+                    // Amount Input
+                    VStack(spacing: 8) {
                     Text("Amount")
                         .foregroundStyle(AppTheme.textSecondary)
                     
@@ -69,21 +68,39 @@ struct AddBuyInSheet: View {
                             .font(.system(size: 40, weight: .bold))
                             .multilineTextAlignment(.center)
                             .focused($isInputFocused)
+                        }
+                        
+                        if let player = selectedPlayer {
+                            let currentInvestment = viewModel.activeSession.playerSessions.first(where: { $0.player?.id == player.id })?.totalBuyIn ?? 0
+                            
+                            HStack {
+                                Text("Current Investment: ₪\(String(format: "%.0f", currentInvestment))")
+                                Spacer()
+                                if let value = Double(amount), value > 0 {
+                                    let newTotal = currentInvestment + value
+                                    Text("New Total: ₪\(String(format: "%.0f", newTotal))")
+                                        .foregroundStyle(AppTheme.accent)
+                                        .bold()
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.gray)
+                            .padding(.top, 4)
+                        }
                     }
-                }
-                .padding()
+                    .padding()
                 
-                Spacer()
-                
-                AccentButton(title: "Confirm Buy-In") {
-                    if let player = selectedPlayer, let value = Double(amount) {
-                        viewModel.addBuyIn(player: player, amount: value)
-                        dismiss()
+                    AccentButton(title: "Confirm Buy-In") {
+                        if let player = selectedPlayer, let value = Double(amount) {
+                            viewModel.addBuyIn(player: player, amount: value)
+                            dismiss()
+                        }
                     }
+                    .disabled(selectedPlayer == nil || amount.isEmpty)
+                    .opacity((selectedPlayer == nil || amount.isEmpty) ? 0.5 : 1)
+                    .padding(.horizontal)
+                    .padding(.bottom, 24)
                 }
-                .disabled(selectedPlayer == nil || amount.isEmpty)
-                .opacity((selectedPlayer == nil || amount.isEmpty) ? 0.5 : 1)
-                
             }
         }
         .onAppear {
