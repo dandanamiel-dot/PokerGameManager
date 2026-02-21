@@ -13,6 +13,7 @@ final class PlayerSession {
     var buyIns: [BuyIn] = []
     
     var cashOut: Double? // Nil means still playing or game not ended for this player
+    var cashOutTime: Date?
     
     /// Whether this player has cashed out (mid-game or end-game)
     var hasCashedOut: Bool { cashOut != nil }

@@ -35,6 +35,12 @@ final class GameSession {
         }
     }
     
+    /// The pot remaining on the table (totalPot minus cash-outs)
+    var remainingPot: Double {
+        let cashOuts = playerSessions.reduce(0.0) { $0 + ($1.cashOut ?? 0) }
+        return totalPot - cashOuts
+    }
+    
     var playerCount: Int {
         playerSessions.count
     }

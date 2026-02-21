@@ -42,6 +42,7 @@ struct BuyInEvent: Codable, Identifiable {
     var timestamp: Date
     var amount: Double
     var cumulativeTotal: Double
+    var isCashOut: Bool?
 }
 
 struct SettlementEntry: Codable, Identifiable {
@@ -67,7 +68,7 @@ extension GameRoom {
         var room = GameRoom(roomCode: roomCode, hostId: hostId)
         room.status = session.status == .completed ? "completed" : "active"
         room.createdAt = session.date
-        room.totalPot = session.totalPot
+        room.totalPot = session.remainingPot
         
         // Build player snapshots
         room.players = session.playerSessions.map { ps in
@@ -82,22 +83,30 @@ extension GameRoom {
             )
         }
         
-        // Build buy-in timeline
-        let allBuyIns = session.playerSessions.flatMap { ps in
-            ps.buyIns.map { buyIn in
-                (playerName: ps.player?.name ?? "Unknown", buyIn: buyIn)
+        // Build buy-in/cash-out timeline
+        var events: [(id: UUID, playerName: String, time: Date, amount: Double, isCashOut: Bool)] = []
+        
+        for ps in session.playerSessions {
+            for buyIn in ps.buyIns {
+                events.append((id: buyIn.id, playerName: ps.player?.name ?? "Unknown", time: buyIn.timestamp, amount: buyIn.amount, isCashOut: false))
             }
-        }.sorted { $0.buyIn.timestamp < $1.buyIn.timestamp }
+            if let cashOut = ps.cashOut, let cashOutTime = ps.cashOutTime {
+                events.append((id: UUID(), playerName: ps.player?.name ?? "Unknown", time: cashOutTime, amount: -cashOut, isCashOut: true))
+            }
+        }
+        
+        events.sort { $0.time < $1.time }
         
         var cumulative: Double = 0
-        room.buyInTimeline = allBuyIns.map { entry in
-            cumulative += entry.buyIn.amount
+        room.buyInTimeline = events.map { event in
+            cumulative += event.amount
             return BuyInEvent(
-                id: entry.buyIn.id.uuidString,
-                playerName: entry.playerName,
-                timestamp: entry.buyIn.timestamp,
-                amount: entry.buyIn.amount,
-                cumulativeTotal: cumulative
+                id: event.id.uuidString,
+                playerName: event.playerName,
+                timestamp: event.time,
+                amount: abs(event.amount),
+                cumulativeTotal: cumulative,
+                isCashOut: event.isCashOut
             )
         }
         

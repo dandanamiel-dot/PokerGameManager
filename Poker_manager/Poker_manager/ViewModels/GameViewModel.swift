@@ -57,6 +57,7 @@ class GameViewModel: ObservableObject {
     /// Cash out a player mid-game
     func cashOutPlayer(session: PlayerSession, amount: Double) {
         session.cashOut = amount
+        session.cashOutTime = Date()
         try? modelContext.save()
         objectWillChange.send()
     }

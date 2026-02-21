@@ -189,23 +189,35 @@ struct ViewerGameView: View {
                                 }
                             }
                             
-                            // Recent Buy-ins Feed
+                            // Recent Timeline Feed
                             if !room.buyInTimeline.isEmpty {
                                 VStack(alignment: .leading, spacing: 12) {
-                                    Text("Buy-in Feed")
+                                    Text("Live Feed")
                                         .font(.title3.bold())
                                         .foregroundStyle(.white)
                                         .padding(.horizontal)
                                     
                                     ForEach(room.buyInTimeline.suffix(5).reversed()) { event in
                                         HStack {
-                                            Image(systemName: "dollarsign.circle.fill")
-                                                .foregroundStyle(AppTheme.accent)
+                                            Image(systemName: event.isCashOut == true ? "arrow.down.right.circle.fill" : "dollarsign.circle.fill")
+                                                .foregroundStyle(event.isCashOut == true ? .orange : AppTheme.accent)
                                             
                                             VStack(alignment: .leading) {
-                                                Text(event.playerName)
-                                                    .foregroundStyle(.white)
-                                                    .fontWeight(.medium)
+                                                HStack {
+                                                    Text(event.playerName)
+                                                        .foregroundStyle(.white)
+                                                        .fontWeight(.medium)
+                                                    
+                                                    if event.isCashOut == true {
+                                                        Text("Cashed Out")
+                                                            .font(.caption2)
+                                                            .foregroundStyle(.orange)
+                                                            .padding(.horizontal, 6)
+                                                            .padding(.vertical, 2)
+                                                            .background(Color.orange.opacity(0.15))
+                                                            .clipShape(Capsule())
+                                                    }
+                                                }
                                                 Text(event.timestamp, style: .time)
                                                     .font(.caption)
                                                     .foregroundStyle(.gray)
@@ -213,8 +225,8 @@ struct ViewerGameView: View {
                                             
                                             Spacer()
                                             
-                                            Text("+₪\(String(format: "%.0f", event.amount))")
-                                                .foregroundStyle(AppTheme.accent)
+                                            Text("\(event.isCashOut == true ? "-" : "+")₪\(String(format: "%.0f", event.amount))")
+                                                .foregroundStyle(event.isCashOut == true ? .orange : AppTheme.accent)
                                                 .fontWeight(.bold)
                                         }
                                         .padding(.horizontal)

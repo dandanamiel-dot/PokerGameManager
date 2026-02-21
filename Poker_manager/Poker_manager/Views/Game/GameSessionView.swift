@@ -120,54 +120,66 @@ struct GameSessionView: View {
                                 .foregroundStyle(AppTheme.textSecondary)
                                 .font(.subheadline)
                             
-                            Text("₪\(viewModel.activeSession.totalPot, specifier: "%.0f")")
+                            Text("₪\(viewModel.activeSession.status == .active ? viewModel.activeSession.remainingPot : viewModel.activeSession.totalPot, specifier: "%.0f")")
                                 .font(.system(size: 56, weight: .bold, design: .rounded))
                                 .foregroundStyle(AppTheme.accent)
                                 .shadow(color: AppTheme.accent.opacity(0.3), radius: 20)
+                            
+                            // Show total buy-ins vs remaining if there are cash-outs
+                            if viewModel.activeSession.status == .active && viewModel.activeSession.remainingPot != viewModel.activeSession.totalPot {
+                                Text("Total buy-ins: ₪\(viewModel.activeSession.totalPot, specifier: "%.0f")")
+                                    .font(.caption)
+                                    .foregroundStyle(AppTheme.textSecondary)
+                            }
                         }
                         .padding(.vertical, 20)
                         
                         // Action Buttons - Only for active games
                         if viewModel.activeSession.status == .active {
-                            HStack(spacing: 16) {
+                            HStack(spacing: 12) {
+                                // Buy In — primary accent button
                                 AccentButton(title: "Buy In", icon: "plus.circle.fill") {
                                     showAddBuyIn = true
                                 }
                                 
+                                // Cash Out — outlined dark button
                                 Button {
                                     showCashOut = true
                                 } label: {
-                                    HStack {
+                                    HStack(spacing: 6) {
                                         Image(systemName: "banknote")
                                         Text("Cash Out")
                                     }
                                     .fontWeight(.bold)
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(AppTheme.accent)
                                     .padding(.vertical, 12)
-                                    .padding(.horizontal, 24)
-                                    .background(
-                                        LinearGradient(
-                                            colors: [Color.orange.opacity(0.8), Color.orange.opacity(0.5)],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
+                                    .padding(.horizontal, 20)
+                                    .background(AppTheme.cardBackground)
                                     .cornerRadius(30)
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(AppTheme.accent.opacity(0.4), lineWidth: 1.5)
+                                    )
                                 }
                                 
+                                // End Game — outlined dark button
                                 Button {
                                     showEndGame = true
                                 } label: {
-                                    HStack {
+                                    HStack(spacing: 6) {
                                         Image(systemName: "flag.checkered")
-                                        Text("End Game")
+                                        Text("End")
                                     }
                                     .fontWeight(.bold)
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(.white.opacity(0.7))
                                     .padding(.vertical, 12)
-                                    .padding(.horizontal, 24)
-                                    .background(Color.red.opacity(0.8))
+                                    .padding(.horizontal, 20)
+                                    .background(AppTheme.cardBackground)
                                     .cornerRadius(30)
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                    )
                                 }
                             }
                         } else {
@@ -204,18 +216,14 @@ struct GameSessionView: View {
                         
                         // Buy-In Timeline Chart (stock chart style)
                         if viewModel.activeSession.status == .active {
-                            let allBuyIns = viewModel.activeSession.playerSessions
-                                .flatMap { $0.buyIns }
-                                .sorted { $0.timestamp < $1.timestamp }
+                            let cumulativeData = buildCumulativeData(from: viewModel.activeSession)
                             
-                            if allBuyIns.count > 1 {
+                            if cumulativeData.count > 1 {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Pot Timeline")
                                         .font(.headline)
                                         .foregroundStyle(.white)
                                         .padding(.horizontal)
-                                    
-                                    let cumulativeData = buildCumulativeData(from: allBuyIns)
                                     
                                     Chart {
                                         ForEach(Array(cumulativeData.enumerated()), id: \.offset) { _, point in
@@ -289,18 +297,18 @@ struct GameSessionView: View {
                                     HStack {
                                         PlayerRow(
                                             name: session.player?.name ?? "Unknown",
-                                            detail: "\(session.buyIns.count) buy-ins",
-                                            amount: "₪\(String(format: "%.0f", session.totalBuyIn))",
-                                            isPositive: true
+                                            detail: session.hasCashedOut ? "Cashed out" : "\(session.buyIns.count) buy-ins",
+                                            amount: session.hasCashedOut ? "₪\(String(format: "%.0f", session.cashOut ?? 0))" : "₪\(String(format: "%.0f", session.totalBuyIn))",
+                                            isPositive: !session.hasCashedOut
                                         )
                                         
                                         if session.hasCashedOut {
-                                            Text("Out ₪\(String(format: "%.0f", session.cashOut ?? 0))")
-                                                .font(.caption.bold())
-                                                .foregroundStyle(.orange)
+                                            Text("OUT")
+                                                .font(.caption2.bold())
+                                                .foregroundStyle(AppTheme.accent)
                                                 .padding(.horizontal, 8)
                                                 .padding(.vertical, 4)
-                                                .background(Color.orange.opacity(0.15))
+                                                .background(AppTheme.accent.opacity(0.12))
                                                 .clipShape(Capsule())
                                         }
                                     }
@@ -366,11 +374,24 @@ struct GameSessionView: View {
         let total: Double
     }
     
-    private func buildCumulativeData(from buyIns: [BuyIn]) -> [PotDataPoint] {
+    private func buildCumulativeData(from session: GameSession) -> [PotDataPoint] {
+        var events: [(time: Date, amount: Double)] = []
+        
+        for ps in session.playerSessions {
+            for buyIn in ps.buyIns {
+                events.append((time: buyIn.timestamp, amount: buyIn.amount))
+            }
+            if let cashOut = ps.cashOut, let cashOutTime = ps.cashOutTime {
+                events.append((time: cashOutTime, amount: -cashOut))
+            }
+        }
+        
+        events.sort { $0.time < $1.time }
+        
         var cumulative: Double = 0
-        return buyIns.map { buyIn in
-            cumulative += buyIn.amount
-            return PotDataPoint(time: buyIn.timestamp, total: cumulative)
+        return events.map { event in
+            cumulative += event.amount
+            return PotDataPoint(time: event.time, total: cumulative)
         }
     }
 }
