@@ -14,6 +14,7 @@ struct GameSessionView: View {
     @State private var showShareRoom = false
     @State private var isCreatingRoom = false
     @State private var selectedDate: Date? // For interactive chart
+    @State private var chartData: [PotDataPoint] = [] // Cached for performance
     @ObservedObject private var firebaseService = FirebaseService.shared
     private var isEmbedded: Bool
     
@@ -217,9 +218,7 @@ struct GameSessionView: View {
                         
                         // Buy-In Timeline Chart (stock chart style)
                         if viewModel.activeSession.status == .active {
-                            let cumulativeData = buildCumulativeData(from: viewModel.activeSession)
-                            
-                            if cumulativeData.count > 1 {
+                            if chartData.count > 1 {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Pot Timeline")
                                         .font(.headline)
@@ -227,7 +226,7 @@ struct GameSessionView: View {
                                         .padding(.horizontal)
                                     
                                     Chart {
-                                        ForEach(Array(cumulativeData.enumerated()), id: \.offset) { _, point in
+                                        ForEach(Array(chartData.enumerated()), id: \.offset) { _, point in
                                             LineMark(
                                                 x: .value("Time", point.time),
                                                 y: .value("Pot", point.total)
@@ -258,7 +257,7 @@ struct GameSessionView: View {
                                         }
                                         
                                         if let selectedDate {
-                                            if let nearestPoint = cumulativeData.min(by: { abs($0.time.timeIntervalSince(selectedDate)) < abs($1.time.timeIntervalSince(selectedDate)) }) {
+                                            if let nearestPoint = chartData.min(by: { abs($0.time.timeIntervalSince(selectedDate)) < abs($1.time.timeIntervalSince(selectedDate)) }) {
                                                 RuleMark(x: .value("Selected", nearestPoint.time))
                                                     .foregroundStyle(Color.gray.opacity(0.5))
                                                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
@@ -329,7 +328,7 @@ struct GameSessionView: View {
                         GameStatisticsRow(session: viewModel.activeSession)
                         
                         // Players List
-                        VStack(alignment: .leading, spacing: 16) {
+                        LazyVStack(alignment: .leading, spacing: 16) {
                             Text("Players (\(viewModel.activeSession.playerSessions.count))")
                                 .font(.title3)
                                 .fontWeight(.bold)
@@ -409,6 +408,10 @@ struct GameSessionView: View {
         }
         .onAppear {
             viewModel.fetchPlayers()
+            chartData = buildCumulativeData(from: viewModel.activeSession)
+        }
+        .onChange(of: viewModel.activeSession.playerSessions) { _ in
+            chartData = buildCumulativeData(from: viewModel.activeSession)
         }
     }
     

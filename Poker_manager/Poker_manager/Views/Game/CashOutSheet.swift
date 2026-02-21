@@ -8,6 +8,7 @@ struct CashOutSheet: View {
     
     @State private var selectedSession: PlayerSession?
     @State private var amount: String = ""
+    @FocusState private var isInputFocused: Bool
     
     /// Only players who haven't cashed out yet
     var activeSessions: [PlayerSession] {
@@ -82,6 +83,7 @@ struct CashOutSheet: View {
                             .foregroundStyle(.white)
                             .font(.system(size: 40, weight: .bold))
                             .multilineTextAlignment(.center)
+                            .focused($isInputFocused)
                     }
                     
                     if let session = selectedSession, let value = Double(amount), value > 0 {
@@ -120,7 +122,9 @@ struct CashOutSheet: View {
                 .disabled(!canConfirm)
                 .padding(.bottom)
             }
-            .padding()
+        }
+        .onAppear {
+            isInputFocused = true
         }
     }
     

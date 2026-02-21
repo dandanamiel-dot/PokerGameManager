@@ -8,6 +8,7 @@ struct AddBuyInSheet: View {
     
     @State private var selectedPlayer: Player?
     @State private var amount: String = ""
+    @FocusState private var isInputFocused: Bool
     
     let columns = [
         GridItem(.flexible()),
@@ -62,12 +63,12 @@ struct AddBuyInSheet: View {
                         Text("₪")
                             .foregroundStyle(AppTheme.accent)
                             .font(.title)
-                        
                         TextField("0", text: $amount)
                             .keyboardType(.numberPad)
                             .foregroundStyle(.white)
                             .font(.system(size: 40, weight: .bold))
                             .multilineTextAlignment(.center)
+                            .focused($isInputFocused)
                     }
                 }
                 .padding()
@@ -84,7 +85,9 @@ struct AddBuyInSheet: View {
                 .opacity((selectedPlayer == nil || amount.isEmpty) ? 0.5 : 1)
                 
             }
-            .padding()
+        }
+        .onAppear {
+            isInputFocused = true
         }
     }
 }

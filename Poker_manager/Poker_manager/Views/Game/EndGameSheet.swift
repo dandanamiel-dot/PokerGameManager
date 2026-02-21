@@ -8,6 +8,9 @@ struct EndGameSheet: View {
     
     @FocusState private var focusedField: UUID?
     
+    // Local state for driving textfields without hitting SwiftData models on every keystroke
+    @State private var draftCashOuts: [UUID: Double] = [:]
+    
     // Ordered list of player session IDs for keyboard navigation
     private var sessionIDs: [UUID] {
         viewModel.activeSession.playerSessions.map { $0.id }
@@ -37,7 +40,7 @@ struct EndGameSheet: View {
                         }
                         
                         // MARK: - Player Cards
-                        VStack(spacing: AppTheme.spacingM) {
+                        LazyVStack(spacing: AppTheme.spacingM) {
                             ForEach($viewModel.activeSession.playerSessions) { $session in
                                 let isFocused = focusedField == session.id
                                 let alreadyCashedOut = session.cashOutTime != nil
@@ -81,10 +84,7 @@ struct EndGameSheet: View {
                                                 .frame(width: 110, alignment: .trailing)
                                         } else {
                                             // Editable cash-out input
-                                            TextField("Enter amount", value: Binding(
-                                                get: { session.cashOut ?? 0 },
-                                                set: { session.cashOut = $0 }
-                                            ), format: .number)
+                                            TextField("Enter amount", value: binding(for: session), format: .number)
                                             .keyboardType(.numberPad)
                                             .multilineTextAlignment(.trailing)
                                             .foregroundStyle(AppTheme.accent)
@@ -122,7 +122,16 @@ struct EndGameSheet: View {
                         
                         // MARK: - Validation Summary
                         let totalBuyIn = viewModel.activeSession.totalPot
-                        let totalCashOut = viewModel.activeSession.playerSessions.reduce(0.0) { $0 + ($1.cashOut ?? 0) }
+                        
+                        // Calculate total cash out using the draft states for active players, plus saved for cashed-out players
+                        let totalCashOut = viewModel.activeSession.playerSessions.reduce(0.0) { result, session in
+                            if session.cashOutTime != nil {
+                                return result + (session.cashOut ?? 0)
+                            } else {
+                                return result + (draftCashOuts[session.id] ?? 0)
+                            }
+                        }
+                        
                         let diff = totalCashOut - totalBuyIn
                         let isBalanced = abs(diff) <= 1
                         
@@ -146,6 +155,7 @@ struct EndGameSheet: View {
                         // MARK: - Action Button
                         if isBalanced {
                             AccentButton(title: "Calculate Settlement") {
+                                applyDraftsToSession()
                                 viewModel.calculateSettlements()
                                 dismiss()
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -197,6 +207,34 @@ struct EndGameSheet: View {
                     Button("Cancel") { dismiss() }
                         .foregroundStyle(.white)
                 }
+            }
+        }
+        .onAppear {
+            initializeDrafts()
+        }
+    }
+    
+    // MARK: - Draft State Helpers
+    
+    private func initializeDrafts() {
+        for session in viewModel.activeSession.playerSessions {
+            if session.cashOutTime == nil {
+                draftCashOuts[session.id] = session.cashOut ?? 0
+            }
+        }
+    }
+    
+    private func binding(for session: PlayerSession) -> Binding<Double> {
+        Binding<Double>(
+            get: { draftCashOuts[session.id] ?? 0 },
+            set: { draftCashOuts[session.id] = $0 }
+        )
+    }
+    
+    private func applyDraftsToSession() {
+        for session in viewModel.activeSession.playerSessions {
+            if session.cashOutTime == nil, let draftValue = draftCashOuts[session.id] {
+                session.cashOut = draftValue
             }
         }
     }
