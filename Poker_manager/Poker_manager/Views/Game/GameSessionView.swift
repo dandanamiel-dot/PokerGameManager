@@ -13,6 +13,7 @@ struct GameSessionView: View {
     @State private var showEndGame = false
     @State private var showShareRoom = false
     @State private var isCreatingRoom = false
+    @State private var selectedDate: Date? // For interactive chart
     @ObservedObject private var firebaseService = FirebaseService.shared
     private var isEmbedded: Bool
     
@@ -255,7 +256,42 @@ struct GameSessionView: View {
                                             .foregroundStyle(AppTheme.accent)
                                             .symbolSize(30)
                                         }
+                                        
+                                        if let selectedDate {
+                                            if let nearestPoint = cumulativeData.min(by: { abs($0.time.timeIntervalSince(selectedDate)) < abs($1.time.timeIntervalSince(selectedDate)) }) {
+                                                RuleMark(x: .value("Selected", nearestPoint.time))
+                                                    .foregroundStyle(Color.gray.opacity(0.5))
+                                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
+                                                    .annotation(position: .top, spacing: 0) {
+                                                        VStack(alignment: .leading, spacing: 4) {
+                                                            Text(nearestPoint.playerName)
+                                                                .font(.caption2.bold())
+                                                                .foregroundStyle(.white)
+                                                            
+                                                            HStack(spacing: 4) {
+                                                                Text(nearestPoint.isCashOut ? "Cashed out:" : "Bought in:")
+                                                                    .foregroundStyle(AppTheme.textSecondary)
+                                                                Text("\(nearestPoint.isCashOut ? "-" : "+")₪\(nearestPoint.eventAmount, specifier: "%.0f")")
+                                                                    .bold()
+                                                                    .foregroundStyle(nearestPoint.isCashOut ? .orange : AppTheme.accent)
+                                                            }
+                                                            .font(.caption)
+                                                            
+                                                            Text(nearestPoint.time.formatted(date: .omitted, time: .shortened))
+                                                                .font(.system(size: 10))
+                                                                .foregroundStyle(.gray)
+                                                        }
+                                                        .padding(10)
+                                                        .background(AppTheme.cardBackground)
+                                                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.accent.opacity(0.5), lineWidth: 1))
+                                                        .cornerRadius(8)
+                                                        .shadow(color: .black.opacity(0.5), radius: 6)
+                                                        .padding(.bottom, 8)
+                                                    }
+                                            }
+                                        }
                                     }
+                                    .chartXSelection(value: $selectedDate)
                                     .frame(height: 180)
                                     .chartYAxis {
                                         AxisMarks(position: .leading) { value in
@@ -283,6 +319,14 @@ struct GameSessionView: View {
                                 }
                             }
                         }
+                        
+                        // Recent Activities Component
+                        if !viewModel.activeSession.playerSessions.isEmpty {
+                            RecentActivitiesFeed(session: viewModel.activeSession)
+                        }
+                        
+                        // Game Statistics
+                        GameStatisticsRow(session: viewModel.activeSession)
                         
                         // Players List
                         VStack(alignment: .leading, spacing: 16) {
@@ -369,20 +413,24 @@ struct GameSessionView: View {
     }
     
     // MARK: - Chart Helpers
-    struct PotDataPoint {
+    struct PotDataPoint: Identifiable {
+        let id = UUID()
         let time: Date
         let total: Double
+        let playerName: String
+        let eventAmount: Double
+        let isCashOut: Bool
     }
     
     private func buildCumulativeData(from session: GameSession) -> [PotDataPoint] {
-        var events: [(time: Date, amount: Double)] = []
+        var events: [(time: Date, amount: Double, playerName: String, isCashOut: Bool)] = []
         
         for ps in session.playerSessions {
             for buyIn in ps.buyIns {
-                events.append((time: buyIn.timestamp, amount: buyIn.amount))
+                events.append((time: buyIn.timestamp, amount: buyIn.amount, playerName: ps.player?.name ?? "Unknown", isCashOut: false))
             }
             if let cashOut = ps.cashOut, let cashOutTime = ps.cashOutTime {
-                events.append((time: cashOutTime, amount: -cashOut))
+                events.append((time: cashOutTime, amount: -cashOut, playerName: ps.player?.name ?? "Unknown", isCashOut: true))
             }
         }
         
@@ -391,7 +439,182 @@ struct GameSessionView: View {
         var cumulative: Double = 0
         return events.map { event in
             cumulative += event.amount
-            return PotDataPoint(time: event.time, total: cumulative)
+            return PotDataPoint(
+                time: event.time,
+                total: cumulative,
+                playerName: event.playerName,
+                eventAmount: abs(event.amount),
+                isCashOut: event.isCashOut
+            )
         }
+    }
+}
+
+// MARK: - Game Statistics & Activity Feed
+
+struct GameStatisticsRow: View {
+    let session: GameSession
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Game Statistics")
+                .font(.title3.bold())
+                .foregroundStyle(.white)
+                .padding(.horizontal)
+            
+            HStack(spacing: 12) {
+                StatCard(title: "Total Chips", value: "₪\(String(format: "%.0f", session.remainingPot))")
+                StatCard(title: "Players", value: "\(session.playerSessions.count)")
+                
+                let cashOutVal = session.playerSessions.reduce(0.0) { $0 + ($1.cashOut ?? 0) }
+                StatCard(title: "Cash Outs", value: "₪\(String(format: "%.0f", cashOutVal))")
+            }
+            .padding(.horizontal)
+        }
+    }
+    
+    struct StatCard: View {
+        let title: String
+        let value: String
+        
+        var body: some View {
+            VStack(spacing: 8) {
+                Text(value)
+                    .font(.title2.bold())
+                    .foregroundStyle(.white)
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(AppTheme.cardBackground)
+            .cornerRadius(12)
+        }
+    }
+}
+
+enum ActivityEventType {
+    case joined
+    case buyIn(amount: Double)
+    case cashOut(amount: Double)
+}
+
+struct ActivityEvent: Identifiable {
+    let id = UUID()
+    let time: Date
+    let playerName: String
+    let type: ActivityEventType
+}
+
+struct RecentActivitiesFeed: View {
+    let session: GameSession
+    @State private var showPastEvents = false
+    
+    private var events: [ActivityEvent] {
+        var allEvents: [ActivityEvent] = []
+        for ps in session.playerSessions {
+            let name = ps.player?.name ?? "Unknown"
+            
+            // Join event
+            allEvents.append(ActivityEvent(time: ps.joinedAt, playerName: name, type: .joined))
+            
+            // Buy-ins
+            for buyIn in ps.buyIns {
+                allEvents.append(ActivityEvent(time: buyIn.timestamp, playerName: name, type: .buyIn(amount: buyIn.amount)))
+            }
+            
+            // Cash-outs
+            if let cashOut = ps.cashOut, let cashOutTime = ps.cashOutTime {
+                allEvents.append(ActivityEvent(time: cashOutTime, playerName: name, type: .cashOut(amount: cashOut)))
+            }
+        }
+        return allEvents.sorted { $0.time > $1.time }
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Recent Activities")
+                    .font(.title3.bold())
+                    .foregroundStyle(.white)
+                Spacer()
+                Button("See Past Events") {
+                    showPastEvents = true
+                }
+                .font(.subheadline.bold())
+                .foregroundStyle(Color.blue)
+            }
+            .padding()
+            
+            let recentEvents = Array(events.prefix(3))
+            
+            if recentEvents.isEmpty {
+                Text("No activities yet.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .padding()
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(recentEvents.enumerated()), id: \.offset) { index, event in
+                        HStack(alignment: .top, spacing: 16) {
+                            Text(event.time.formatted(date: .omitted, time: .shortened))
+                                .font(.caption2)
+                                .foregroundStyle(AppTheme.textSecondary)
+                                .frame(width: 55, alignment: .trailing)
+                                .padding(.top, 2) // Match dot alignment
+                            
+                            // Timeline dot & line
+                            VStack(spacing: 0) {
+                                Circle()
+                                    .fill(AppTheme.accent)
+                                    .frame(width: 10, height: 10)
+                                    .shadow(color: AppTheme.accent.opacity(0.8), radius: 4)
+                                
+                                if index < recentEvents.count - 1 {
+                                    Rectangle()
+                                        .fill(AppTheme.accent.opacity(0.6))
+                                        .frame(width: 2)
+                                        .padding(.vertical, 2)
+                                }
+                            }
+                            
+                            // Event content
+                            Text(eventDescription(for: event))
+                                .font(.subheadline)
+                                .foregroundStyle(.white)
+                                .padding(.bottom, index == recentEvents.count - 1 ? 0 : 24)
+                            
+                            Spacer()
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 20)
+            }
+        }
+        .background(AppTheme.cardBackground)
+        .cornerRadius(16)
+        .padding(.horizontal)
+        .sheet(isPresented: $showPastEvents) {
+            PastActivitiesSheet(events: events)
+        }
+    }
+    
+    private func eventDescription(for event: ActivityEvent) -> AttributedString {
+        var str = AttributedString("\(event.playerName) ")
+        str.font = .subheadline.bold()
+        
+        var actionStr: AttributedString
+        switch event.type {
+        case .joined:
+            actionStr = AttributedString("joined the game")
+        case .buyIn(let amount):
+            actionStr = AttributedString("bought in for ₪\(String(format: "%.0f", amount))")
+        case .cashOut(let amount):
+            actionStr = AttributedString("cashed out ₪\(String(format: "%.0f", amount))")
+        }
+        
+        return str + actionStr
     }
 }

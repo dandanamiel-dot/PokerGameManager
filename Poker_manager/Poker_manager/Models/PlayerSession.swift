@@ -22,9 +22,12 @@ final class PlayerSession {
     // without circular dependency issues in some SwiftData versions, 
     // but usually it's fine. Let's rely on GameSession owning PlayerSession.
     
+    var joinedAt: Date = Date()
+    
     init(player: Player) {
         self.id = UUID()
         self.player = player
+        self.joinedAt = Date()
     }
     
     var totalBuyIn: Double {
