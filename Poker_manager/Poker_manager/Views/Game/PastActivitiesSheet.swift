@@ -70,6 +70,8 @@ struct PastActivitiesSheet: View {
             actionStr = AttributedString("bought in for ₪\(String(format: "%.0f", amount))")
         case .cashOut(let amount):
             actionStr = AttributedString("cashed out ₪\(String(format: "%.0f", amount))")
+        case .ended:
+            return AttributedString("Game ended")
         }
         
         return str + actionStr

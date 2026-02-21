@@ -261,7 +261,11 @@ struct GameSessionView: View {
                                                 RuleMark(x: .value("Selected", nearestPoint.time))
                                                     .foregroundStyle(Color.gray.opacity(0.5))
                                                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
-                                                    .annotation(position: .top, spacing: 0) {
+                                                    .annotation(
+                                                        position: .top,
+                                                        spacing: 0,
+                                                        overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))
+                                                    ) {
                                                         VStack(alignment: .leading, spacing: 4) {
                                                             Text(nearestPoint.playerName)
                                                                 .font(.caption2.bold())
@@ -501,6 +505,7 @@ enum ActivityEventType {
     case joined
     case buyIn(amount: Double)
     case cashOut(amount: Double)
+    case ended
 }
 
 struct ActivityEvent: Identifiable {
@@ -508,6 +513,33 @@ struct ActivityEvent: Identifiable {
     let time: Date
     let playerName: String
     let type: ActivityEventType
+}
+
+struct PulseDot: View {
+    @State private var isPulsing = false
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(AppTheme.accent)
+                .frame(width: 10, height: 10)
+            
+            Circle()
+                .stroke(AppTheme.accent, lineWidth: 2)
+                .frame(width: 10, height: 10)
+                .scaleEffect(isPulsing ? 2.5 : 1)
+                .opacity(isPulsing ? 0 : 0.8)
+                .onAppear {
+                    withAnimation(
+                        .easeInOut(duration: 1.5)
+                        .repeatForever(autoreverses: false)
+                    ) {
+                        isPulsing = true
+                    }
+                }
+        }
+        .frame(width: 10, height: 10)
+    }
 }
 
 struct RecentActivitiesFeed: View {
@@ -532,7 +564,12 @@ struct RecentActivitiesFeed: View {
                 allEvents.append(ActivityEvent(time: cashOutTime, playerName: name, type: .cashOut(amount: cashOut)))
             }
         }
-        return allEvents.sorted { $0.time > $1.time }
+        
+        if session.status == .completed, let endedAt = session.endedAt {
+            allEvents.append(ActivityEvent(time: endedAt, playerName: "Game", type: .ended))
+        }
+        
+        return allEvents.sorted { $0.time < $1.time }
     }
     
     var body: some View {
@@ -550,7 +587,7 @@ struct RecentActivitiesFeed: View {
             }
             .padding()
             
-            let recentEvents = Array(events.prefix(3))
+            let recentEvents = Array(events.suffix(3))
             
             if recentEvents.isEmpty {
                 Text("No activities yet.")
@@ -569,10 +606,14 @@ struct RecentActivitiesFeed: View {
                             
                             // Timeline dot & line
                             VStack(spacing: 0) {
-                                Circle()
-                                    .fill(AppTheme.accent)
-                                    .frame(width: 10, height: 10)
-                                    .shadow(color: AppTheme.accent.opacity(0.8), radius: 4)
+                                if index == recentEvents.count - 1 {
+                                    PulseDot()
+                                } else {
+                                    Circle()
+                                        .fill(AppTheme.accent)
+                                        .frame(width: 10, height: 10)
+                                        .shadow(color: AppTheme.accent.opacity(0.8), radius: 4)
+                                }
                                 
                                 if index < recentEvents.count - 1 {
                                     Rectangle()
@@ -616,6 +657,8 @@ struct RecentActivitiesFeed: View {
             actionStr = AttributedString("bought in for ₪\(String(format: "%.0f", amount))")
         case .cashOut(let amount):
             actionStr = AttributedString("cashed out ₪\(String(format: "%.0f", amount))")
+        case .ended:
+            return AttributedString("Game ended")
         }
         
         return str + actionStr
