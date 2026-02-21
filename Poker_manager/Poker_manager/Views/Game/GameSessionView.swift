@@ -14,6 +14,7 @@ struct GameSessionView: View {
     @State private var showShareRoom = false
     @State private var isCreatingRoom = false
     @State private var selectedDate: Date? // For interactive chart
+    @State private var selectedPointId: UUID? // For discrete haptics
     @State private var chartData: [PotDataPoint] = [] // Cached for performance
     @ObservedObject private var firebaseService = FirebaseService.shared
     private var isEmbedded: Bool
@@ -295,7 +296,16 @@ struct GameSessionView: View {
                                         }
                                     }
                                     .chartXSelection(value: $selectedDate)
-                                    .sensoryFeedback(.selection, trigger: selectedDate)
+                                    .onChange(of: selectedDate) { _, newDate in
+                                        if let newDate = newDate {
+                                            if let nearestPoint = chartData.min(by: { abs($0.time.timeIntervalSince(newDate)) < abs($1.time.timeIntervalSince(newDate)) }) {
+                                                selectedPointId = nearestPoint.id
+                                            }
+                                        } else {
+                                            selectedPointId = nil
+                                        }
+                                    }
+                                    .sensoryFeedback(.selection, trigger: selectedPointId)
                                     .frame(height: 180)
                                     .chartYAxis {
                                         AxisMarks(position: .leading) { value in
