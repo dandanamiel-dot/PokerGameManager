@@ -89,6 +89,11 @@ struct HomeView: View {
                     }
                     .padding(.top, 60)
                     
+                    if let group = group {
+                        GroupCodeHeader(groupId: group.groupId)
+                            .padding(.top, -8)
+                    }
+                    
                     // MARK: - Groups Section (only in local mode)
                     
                     if group == nil {
