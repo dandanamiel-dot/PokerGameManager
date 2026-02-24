@@ -1,6 +1,6 @@
-
 import SwiftUI
 import SwiftData
+import CoreImage.CIFilterBuiltins
 
 struct GroupDashboardView: View {
     let group: PokerGroup
@@ -14,6 +14,7 @@ struct GroupDashboardView: View {
     @State private var showSettings = false
     @State private var selectedGame: GameSession?
     @State private var codeCopied = false
+    @State private var showQRCode = false
     
     init(group: PokerGroup) {
         self.group = group
@@ -35,9 +36,6 @@ struct GroupDashboardView: View {
                 
                 ScrollView {
                     VStack(spacing: 24) {
-                        // Group ID Card
-                        groupIdCard
-                        
                         // Members Section
                         membersSection
                         
@@ -65,6 +63,9 @@ struct GroupDashboardView: View {
         .fullScreenCover(item: $selectedGame) { game in
             GameSessionView(session: game, modelContext: modelContext)
         }
+        .sheet(isPresented: $showQRCode) {
+            QRCodeSheet(code: currentGroup.groupId)
+        }
         .onAppear {
             firebaseService.listenToGroup(groupId: group.groupId)
         }
@@ -73,10 +74,11 @@ struct GroupDashboardView: View {
     // MARK: - Header
     
     private var headerView: some View {
-        HStack {
-            Button {
-                dismiss()
-            } label: {
+        VStack(spacing: 0) {
+            HStack {
+                Button {
+                    dismiss()
+                } label: {
                 Image(systemName: "chevron.left")
                     .foregroundStyle(.white)
                     .padding()
@@ -97,7 +99,6 @@ struct GroupDashboardView: View {
             }
             
             Spacer()
-            
             Button {
                 showSettings = true
             } label: {
@@ -109,64 +110,52 @@ struct GroupDashboardView: View {
             }
         }
         .padding()
-    }
-    
-    // MARK: - Group ID Card
-    
-    private var groupIdCard: some View {
-        GlowCard {
-            VStack(spacing: 12) {
-                Text("Group Code")
-                    .font(.caption)
-                    .foregroundStyle(.gray)
-                
-                Text(currentGroup.groupId)
-                    .font(.system(size: 28, weight: .bold, design: .monospaced))
-                    .foregroundStyle(AppTheme.accent)
-                    .kerning(3)
-                
-                HStack(spacing: 12) {
-                    Button {
-                        UIPasteboard.general.string = currentGroup.groupId
-                        withAnimation { codeCopied = true }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                            withAnimation { codeCopied = false }
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: codeCopied ? "checkmark" : "doc.on.doc")
-                            Text(codeCopied ? "Copied!" : "Copy")
-                        }
-                        .font(.caption.bold())
-                        .foregroundStyle(AppTheme.accent)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(AppTheme.accent.opacity(0.15))
-                        .clipShape(Capsule())
-                    }
-                    
-                    ShareLink(
-                        item: "Join my poker group \"\(currentGroup.name)\" using code: \(currentGroup.groupId)",
-                        subject: Text("Poker Group Invite"),
-                        message: Text("Join my poker group!")
-                    ) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "square.and.arrow.up")
-                            Text("Share")
-                        }
-                        .font(.caption.bold())
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Color.white.opacity(0.1))
-                        .clipShape(Capsule())
-                    }
+        
+        // Compact Code/QR/Copy Row
+        HStack(spacing: 16) {
+            Text("Code:")
+                .foregroundStyle(.gray)
+                .font(.subheadline)
+            
+            Text(currentGroup.groupId)
+                .font(.system(.subheadline, design: .monospaced, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.white.opacity(0.1))
+                .cornerRadius(8)
+            
+            Button {
+                showQRCode = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "qrcode")
+                    Text("QR Code")
                 }
+                .font(.subheadline.bold())
+                .foregroundStyle(.green)
             }
-            .padding(20)
-            .frame(maxWidth: .infinity)
+            
+            Button {
+                UIPasteboard.general.string = currentGroup.groupId
+                withAnimation { codeCopied = true }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    withAnimation { codeCopied = false }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: codeCopied ? "checkmark.doc.fill" : "doc.on.doc")
+                    Text(codeCopied ? "Copied" : "Copy")
+                }
+                .font(.subheadline.bold())
+                .foregroundStyle(.blue)
+            }
+            }
         }
+        .padding(.bottom, 16)
     }
+    
+    // Removed explicit large `groupIdCard` in favor of inline compact header above.
     
     // MARK: - Members
     
@@ -241,6 +230,14 @@ struct GroupDashboardView: View {
                                         .padding(.vertical, 2)
                                         .background(Color.green.opacity(0.2))
                                         .clipShape(Capsule())
+                                } else if game.status == .completed {
+                                    Text("ENDED")
+                                        .font(.caption2.bold())
+                                        .foregroundStyle(.red)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.red.opacity(0.2))
+                                        .clipShape(Capsule())
                                 }
                             }
                         }
@@ -258,5 +255,78 @@ struct GroupDashboardView: View {
     
     private var currentGroup: PokerGroup {
         firebaseService.activeGroup ?? group
+    }
+}
+
+// MARK: - QR Code Sheet
+
+struct QRCodeSheet: View {
+    let code: String
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        ZStack {
+            AppTheme.background.ignoresSafeArea()
+            
+            VStack(spacing: 32) {
+                HStack {
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title)
+                            .foregroundStyle(.gray)
+                    }
+                }
+                .padding()
+                
+                Spacer()
+                
+                VStack(spacing: 16) {
+                    Text("Scan to Join Group")
+                        .font(.title2.bold())
+                        .foregroundStyle(.white)
+                    
+                    Text("Point your camera at this QR code\nto instantly join the poker group.")
+                        .font(.subheadline)
+                        .foregroundStyle(.gray)
+                        .multilineTextAlignment(.center)
+                        
+                    Image(uiImage: generateQRCode(from: code))
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 250, height: 250)
+                        .padding(20)
+                        .background(Color.white)
+                        .cornerRadius(16)
+                        .padding(.top, 24)
+                        
+                    Text(code)
+                        .font(.system(size: 32, weight: .bold, design: .monospaced))
+                        .foregroundStyle(AppTheme.accent)
+                        .kerning(4)
+                        .padding(.top, 16)
+                }
+                
+                Spacer()
+                Spacer()
+            }
+        }
+    }
+    
+    // Uses CoreImage built-in QR Code Generator for crisp rendering without third-party frameworks.
+    private func generateQRCode(from string: String) -> UIImage {
+        let context = CIContext()
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(string.utf8)
+
+        if let outputImage = filter.outputImage {
+            if let cgimg = context.createCGImage(outputImage, from: outputImage.extent) {
+                return UIImage(cgImage: cgimg)
+            }
+        }
+        return UIImage(systemName: "xmark.circle") ?? UIImage()
     }
 }

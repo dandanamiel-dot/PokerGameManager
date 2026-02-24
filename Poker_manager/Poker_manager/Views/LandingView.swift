@@ -57,9 +57,79 @@ struct LandingView: View {
                     .opacity(appearAnimation ? 1 : 0)
                     .offset(y: appearAnimation ? 0 : 20)
                     
+                    // MARK: - Existing Groups
+                    
+                    if !firebaseService.userGroups.isEmpty {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("My Groups")
+                                .font(.title3.bold())
+                                .foregroundStyle(.white)
+                                .padding(.top, 10)
+                            
+                            ForEach(firebaseService.userGroups) { group in
+                                GlowCard {
+                                    HStack(spacing: 16) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(AppTheme.accent.opacity(0.15))
+                                                .frame(width: 44, height: 44)
+                                            Image(systemName: "person.3.fill")
+                                                .foregroundStyle(AppTheme.accent)
+                                                .font(.system(size: 16))
+                                        }
+                                        
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(group.name)
+                                                .foregroundStyle(.white)
+                                                .font(.headline)
+                                                .fontWeight(.semibold)
+                                            
+                                            HStack(spacing: 8) {
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "person.2.fill")
+                                                        .font(.caption2)
+                                                    Text("\(group.memberCount)")
+                                                        .font(.caption)
+                                                }
+                                                .foregroundStyle(AppTheme.textSecondary)
+                                                
+                                                Text(group.currencySymbol)
+                                                    .font(.caption.bold())
+                                                    .foregroundStyle(AppTheme.accent.opacity(0.8))
+                                            }
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Image(systemName: "chevron.right")
+                                            .foregroundStyle(AppTheme.textSecondary.opacity(0.5))
+                                            .font(.caption.weight(.bold))
+                                    }
+                                    .padding(.vertical, 16)
+                                    .padding(.horizontal, 16)
+                                }
+                                .onTapGesture {
+                                    firebaseService.activeGroup = group
+                                    withAnimation(.spring(response: 0.4)) {
+                                        selectedGroup = group
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .opacity(appearAnimation ? 1 : 0)
+                        .offset(y: appearAnimation ? 0 : 20)
+                    }
+                    
                     // MARK: - Main Options
                     
-                    VStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Actions")
+                            .font(.title3.bold())
+                            .foregroundStyle(.white)
+                            .padding(.top, firebaseService.userGroups.isEmpty ? 10 : 20)
+                            .opacity(appearAnimation ? 1 : 0)
+                        
                         // Create Group
                         optionCard(
                             icon: "person.3.fill",
@@ -97,69 +167,6 @@ struct LandingView: View {
                     }
                     .padding(.horizontal, 20)
                     
-                    // MARK: - Existing Groups
-                    
-                    if !firebaseService.userGroups.isEmpty {
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack {
-                                Text("My Groups")
-                                    .font(.title3.bold())
-                                    .foregroundStyle(.white)
-                                Spacer()
-                            }
-                            
-                            ForEach(firebaseService.userGroups) { group in
-                                GlowCard {
-                                    HStack(spacing: 12) {
-                                        ZStack {
-                                            Circle()
-                                                .fill(AppTheme.accent.opacity(0.15))
-                                                .frame(width: 44, height: 44)
-                                            Image(systemName: "person.3.fill")
-                                                .foregroundStyle(AppTheme.accent)
-                                                .font(.system(size: 16))
-                                        }
-                                        
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            Text(group.name)
-                                                .foregroundStyle(.white)
-                                                .fontWeight(.semibold)
-                                            
-                                            HStack(spacing: 8) {
-                                                HStack(spacing: 3) {
-                                                    Image(systemName: "person.2.fill")
-                                                        .font(.caption2)
-                                                    Text("\(group.memberCount)")
-                                                        .font(.caption)
-                                                }
-                                                .foregroundStyle(AppTheme.textSecondary)
-                                                
-                                                Text(group.currencySymbol)
-                                                    .font(.caption.bold())
-                                                    .foregroundStyle(AppTheme.accent.opacity(0.7))
-                                            }
-                                        }
-                                        
-                                        Spacer()
-                                        
-                                        Image(systemName: "chevron.right")
-                                            .foregroundStyle(AppTheme.accent.opacity(0.5))
-                                            .font(.caption)
-                                    }
-                                    .padding()
-                                }
-                                .onTapGesture {
-                                    firebaseService.activeGroup = group
-                                    withAnimation(.spring(response: 0.4)) {
-                                        selectedGroup = group
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .opacity(appearAnimation ? 1 : 0)
-                        .offset(y: appearAnimation ? 0 : 20)
-                    }
                 }
                 .padding(.bottom, 40)
             }

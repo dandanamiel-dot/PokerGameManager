@@ -271,9 +271,29 @@ struct HomeView: View {
                                             .font(.caption)
                                     }
                                     Spacer()
-                                    Text("\(currencySymbol)\(game.totalPot, specifier: "%.0f")")
-                                        .foregroundStyle(AppTheme.accent)
-                                        .fontWeight(.bold)
+                                    HStack(spacing: 8) {
+                                        Text("\(currencySymbol)\(game.totalPot, specifier: "%.0f")")
+                                            .foregroundStyle(AppTheme.accent)
+                                            .fontWeight(.bold)
+                                            
+                                        if game.status == .active {
+                                            Text("LIVE")
+                                                .font(.caption2.bold())
+                                                .foregroundStyle(.green)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Color.green.opacity(0.2))
+                                                .clipShape(Capsule())
+                                        } else if game.status == .completed {
+                                            Text("ENDED")
+                                                .font(.caption2.bold())
+                                                .foregroundStyle(.red)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Color.red.opacity(0.2))
+                                                .clipShape(Capsule())
+                                        }
+                                    }
                                 }
                                 .padding()
                             }
