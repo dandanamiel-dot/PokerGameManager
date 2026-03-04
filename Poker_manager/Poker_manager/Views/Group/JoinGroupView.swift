@@ -2,7 +2,7 @@
 import SwiftUI
 
 struct JoinGroupView: View {
-    @ObservedObject private var firebaseService = FirebaseService.shared
+    let firebaseService = FirebaseService.shared
     @Environment(\.dismiss) private var dismiss
     
     var onGroupJoined: ((PokerGroup) -> Void)?
@@ -58,7 +58,7 @@ struct JoinGroupView: View {
                         .font(.caption)
                         .foregroundStyle(.gray)
                     
-                    TextField("e.g. PKR-A3F", text: $groupCode)
+                    TextField("e.g. A3F29X", text: $groupCode)
                         .font(.system(size: 24, weight: .bold, design: .monospaced))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
@@ -71,6 +71,9 @@ struct JoinGroupView: View {
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(AppTheme.accent.opacity(0.3), lineWidth: 1)
                         )
+                        .onChange(of: groupCode) { _, newValue in
+                            if newValue.count > 6 { groupCode = String(newValue.prefix(6)) }
+                        }
                 }
                 
                 VStack(alignment: .leading, spacing: 6) {
@@ -87,6 +90,9 @@ struct JoinGroupView: View {
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(AppTheme.accent.opacity(0.3), lineWidth: 1)
                         )
+                        .onChange(of: displayName) { _, newValue in
+                            if newValue.count > 30 { displayName = String(newValue.prefix(30)) }
+                        }
                 }
             }
             .padding(.horizontal, 24)

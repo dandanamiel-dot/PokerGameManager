@@ -8,7 +8,9 @@ struct LiveGameTabView: View {
     @Query private var allGames: [GameSession]
     @State private var showNewGameSheet = false
     @State private var showJoinGame = false
-    @ObservedObject private var firebaseService = FirebaseService.shared
+    private let firebaseService = FirebaseService.shared
+    @State private var hasActiveRoom: Bool = FirebaseService.shared.activeRoom != nil
+    @State private var isHost: Bool = FirebaseService.shared.isHost
     
     init(groupId: String) {
         self.groupId = groupId
@@ -23,12 +25,13 @@ struct LiveGameTabView: View {
     }
     
     var body: some View {
-        if let game = activeGame {
-            GameSessionView(session: game, modelContext: modelContext, isEmbedded: true)
-        } else if firebaseService.activeRoom != nil && !firebaseService.isHost {
-            // Viewer mode — watching a remote game
-            ViewerGameView()
-        } else if showJoinGame {
+        Group {
+            if let game = activeGame {
+                GameSessionView(session: game, modelContext: modelContext, isEmbedded: true)
+            } else if hasActiveRoom && !isHost {
+                // Viewer mode — watching a remote game
+                ViewerGameView()
+            } else if showJoinGame {
             JoinGameView()
         } else {
             ZStack {
@@ -81,6 +84,17 @@ struct LiveGameTabView: View {
             .sheet(isPresented: $showNewGameSheet) {
                 NewGameSheet(groupId: groupId)
             }
+        }
+        }
+        .onAppear {
+            hasActiveRoom = firebaseService.activeRoom != nil
+            isHost = firebaseService.isHost
+        }
+        .onReceive(firebaseService.$activeRoom) { room in
+            hasActiveRoom = room != nil
+        }
+        .onReceive(firebaseService.$isHost) { hostValue in
+            isHost = hostValue
         }
     }
 }

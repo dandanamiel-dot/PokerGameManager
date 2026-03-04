@@ -5,11 +5,12 @@ struct EndGameSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: GameViewModel
     var onCalculateSettlement: () -> Void
+    let currencySymbol: String
     
     @FocusState private var focusedField: UUID?
     
     // Local state for driving textfields without hitting SwiftData models on every keystroke
-    @State private var draftCashOuts: [UUID: Double] = [:]
+    @State private var draftCashOuts: [UUID: Double?] = [:]
     
     // Ordered list of player session IDs for keyboard navigation
     private var sessionIDs: [UUID] {
@@ -34,7 +35,7 @@ struct EndGameSheet: View {
                                 .foregroundStyle(AppTheme.textSecondary)
                                 .multilineTextAlignment(.center)
                             
-                            Text("Total must equal the pot of ₪\(viewModel.activeSession.totalPot, specifier: "%.0f")")
+                            Text("Total must equal the pot of \(currencySymbol)\(viewModel.activeSession.totalPot, specifier: "%.0f")")
                                 .font(.caption)
                                 .foregroundStyle(AppTheme.accent.opacity(0.7))
                         }
@@ -68,7 +69,7 @@ struct EndGameSheet: View {
                                                     .background(AppTheme.accent.opacity(0.12))
                                                     .clipShape(Capsule())
                                             } else {
-                                                Text("Buy-in: ₪\(session.totalBuyIn, specifier: "%.0f")")
+                                                Text("Buy-in: \(currencySymbol)\(session.totalBuyIn, specifier: "%.0f")")
                                                     .font(.caption2)
                                                     .foregroundStyle(AppTheme.textSecondary)
                                             }
@@ -78,13 +79,13 @@ struct EndGameSheet: View {
                                         
                                         if alreadyCashedOut {
                                             // Read-only display for already-cashed-out
-                                            Text("₪\(session.cashOut ?? 0, specifier: "%.0f")")
+                                            Text("\(currencySymbol)\(session.cashOut ?? 0, specifier: "%.0f")")
                                                 .font(.title2.bold())
                                                 .foregroundStyle(AppTheme.accent.opacity(0.5))
                                                 .frame(width: 110, alignment: .trailing)
                                         } else {
                                             // Editable cash-out input
-                                            TextField("Enter amount", value: binding(for: session), format: .number)
+                                            TextField(currencySymbol, value: binding(for: session), format: .number)
                                             .keyboardType(.numberPad)
                                             .multilineTextAlignment(.trailing)
                                             .foregroundStyle(AppTheme.accent)
@@ -128,7 +129,7 @@ struct EndGameSheet: View {
                             if session.cashOutTime != nil {
                                 return result + (session.cashOut ?? 0)
                             } else {
-                                return result + (draftCashOuts[session.id] ?? 0)
+                                return result + ((draftCashOuts[session.id] ?? nil) ?? 0)
                             }
                         }
                         
@@ -141,7 +142,7 @@ struct EndGameSheet: View {
                                 .fontWeight(.bold)
                         } else {
                             VStack(spacing: 4) {
-                                Text("⚠️ Mismatch: ₪\(diff, specifier: "%.0f")")
+                                Text("⚠️ Mismatch: \(currencySymbol)\(diff, specifier: "%.0f")")
                                     .foregroundStyle(AppTheme.loss)
                                     .fontWeight(.bold)
                                 Text("Adjust values so the total equals the pot")
@@ -164,7 +165,7 @@ struct EndGameSheet: View {
                             }
                         } else {
                             Button {} label: {
-                                Text("Balance Required (₪\(abs(diff), specifier: "%.0f") off)")
+                                Text("Balance Required (\(currencySymbol)\(abs(diff), specifier: "%.0f") off)")
                                     .fontWeight(.bold)
                                     .foregroundStyle(.white.opacity(0.5))
                                     .padding(.vertical, 12)
@@ -219,22 +220,22 @@ struct EndGameSheet: View {
     private func initializeDrafts() {
         for session in viewModel.activeSession.playerSessions {
             if session.cashOutTime == nil {
-                draftCashOuts[session.id] = session.cashOut ?? 0
+                draftCashOuts[session.id] = session.cashOut
             }
         }
     }
     
-    private func binding(for session: PlayerSession) -> Binding<Double> {
-        Binding<Double>(
-            get: { draftCashOuts[session.id] ?? 0 },
+    private func binding(for session: PlayerSession) -> Binding<Double?> {
+        Binding<Double?>(
+            get: { draftCashOuts[session.id] ?? nil },
             set: { draftCashOuts[session.id] = $0 }
         )
     }
     
     private func applyDraftsToSession() {
         for session in viewModel.activeSession.playerSessions {
-            if session.cashOutTime == nil, let draftValue = draftCashOuts[session.id] {
-                session.cashOut = draftValue
+            if session.cashOutTime == nil {
+                session.cashOut = draftCashOuts[session.id] ?? nil
             }
         }
     }

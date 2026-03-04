@@ -2,15 +2,18 @@
 import SwiftUI
 
 struct JoinGameView: View {
-    @ObservedObject private var firebaseService = FirebaseService.shared
+    let firebaseService = FirebaseService.shared
     @State private var codeDigits: [String] = ["", "", "", ""]
     @State private var isJoining = false
     @State private var errorMessage: String?
     @State private var joinedRoom: GameRoom?
     @FocusState private var focusedField: Int?
     
+    @State private var activeRoom: GameRoom?
+    @State private var isHost = false
+    
     var body: some View {
-        if let room = firebaseService.activeRoom, !firebaseService.isHost {
+        if let room = activeRoom, !isHost {
             ViewerGameView()
         } else {
             joinInputView
@@ -123,6 +126,14 @@ struct JoinGameView: View {
         }
         .onAppear {
             focusedField = 0
+            activeRoom = firebaseService.activeRoom
+            isHost = firebaseService.isHost
+        }
+        .onReceive(firebaseService.$activeRoom) { room in
+            activeRoom = room
+        }
+        .onReceive(firebaseService.$isHost) { host in
+            isHost = host
         }
     }
     

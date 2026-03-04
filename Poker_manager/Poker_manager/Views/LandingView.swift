@@ -2,7 +2,8 @@
 import SwiftUI
 
 struct LandingView: View {
-    @ObservedObject private var firebaseService = FirebaseService.shared
+    let firebaseService = FirebaseService.shared
+    @State private var userGroups: [PokerGroup] = []
     
     @State private var showCreateGroup = false
     @State private var showJoinGroup = false
@@ -40,12 +41,20 @@ struct LandingView: View {
                 VStack(spacing: 28) {
                     // Header
                     VStack(spacing: 8) {
-                        Image("AppLogo")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 80, height: 80)
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(AppTheme.cardBackground)
+                                .frame(width: 80, height: 80)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .stroke(AppTheme.accent.opacity(0.25), lineWidth: 1.5)
+                                )
+                            Text("♠")
+                                .font(.system(size: 44, weight: .bold))
+                                .foregroundStyle(AppTheme.accent)
+                        }
                         
-                        Text("Nano Banana Pro")
+                        Text("All-In Poker Manager")
                             .font(.title2.bold())
                             .foregroundStyle(.white)
                         
@@ -59,14 +68,14 @@ struct LandingView: View {
                     
                     // MARK: - Existing Groups
                     
-                    if !firebaseService.userGroups.isEmpty {
+                    if !userGroups.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
                             Text("My Groups")
                                 .font(.title3.bold())
                                 .foregroundStyle(.white)
                                 .padding(.top, 10)
                             
-                            ForEach(firebaseService.userGroups) { group in
+                            ForEach(userGroups) { group in
                                 GlowCard {
                                     HStack(spacing: 16) {
                                         ZStack {
@@ -127,7 +136,7 @@ struct LandingView: View {
                         Text("Actions")
                             .font(.title3.bold())
                             .foregroundStyle(.white)
-                            .padding(.top, firebaseService.userGroups.isEmpty ? 10 : 20)
+                            .padding(.top, userGroups.isEmpty ? 10 : 20)
                             .opacity(appearAnimation ? 1 : 0)
                         
                         // Create Group
@@ -176,6 +185,9 @@ struct LandingView: View {
             withAnimation(.easeOut(duration: 0.6)) {
                 appearAnimation = true
             }
+        }
+        .onReceive(firebaseService.$userGroups) { groups in
+            userGroups = groups
         }
         .sheet(isPresented: $showCreateGroup) {
             CreateGroupView { group in

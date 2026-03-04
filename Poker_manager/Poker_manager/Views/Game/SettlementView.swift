@@ -4,6 +4,7 @@ import SwiftUI
 struct SettlementView: View {
     @ObservedObject var viewModel: GameViewModel
     @Environment(\.dismiss) private var dismiss
+    let currencySymbol: String
     
     var body: some View {
         ZStack {
@@ -40,7 +41,7 @@ struct SettlementView: View {
                                     
                                     // Amount with Arrow
                                     VStack {
-                                        Text("₪\(transaction.amount, specifier: "%.0f")")
+                                        Text("\(currencySymbol)\(transaction.amount, specifier: "%.0f")")
                                             .fontWeight(.bold)
                                             .foregroundStyle(.white)
                                         Image(systemName: "arrow.right")
@@ -102,7 +103,7 @@ struct SettlementView: View {
         var lines: [String] = ["🃏 Poker Settlement"]
         lines.append("---")
         for t in transactions {
-            lines.append("\(t.from) → \(t.to): ₪\(String(format: "%.0f", t.amount))")
+            lines.append("\(t.from) → \(t.to): \(currencySymbol)\(String(format: "%.0f", t.amount))")
         }
         return lines.joined(separator: "\n")
     }

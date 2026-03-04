@@ -7,8 +7,9 @@ struct MainTabView: View {
     var onExit: (() -> Void)?
     
     @Environment(\.modelContext) private var modelContext
-    @ObservedObject private var firebaseService = FirebaseService.shared
+    private let firebaseService = FirebaseService.shared
     @State private var selectedTab = 0
+    @State private var lastSyncedGroupId: String?
     
     /// Currency symbol: from group if available, otherwise default ₪
     var currencySymbol: String {
@@ -36,11 +37,11 @@ struct MainTabView: View {
                 HistoryView(currencySymbol: currencySymbol, groupId: groupId)
                     .tag(2)
                 
-                PlayersView(groupId: groupId)
+                PlayersView(groupId: groupId, currencySymbol: currencySymbol)
                     .tag(3)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .ignoresSafeArea()
+            .ignoresSafeArea(edges: .bottom)
             
             // Custom Tab Bar
             FloatingTabBar(selectedTab: $selectedTab)
@@ -49,7 +50,11 @@ struct MainTabView: View {
         .onAppear {
             syncGroupMembersToPlayers()
         }
-        .onChange(of: firebaseService.activeGroup) { _, _ in
+        .onReceive(firebaseService.$activeGroup) { newGroup in
+            // Only sync when the group ID actually changes to avoid spurious SwiftData mutations
+            let newGroupId = newGroup?.groupId
+            guard newGroupId != lastSyncedGroupId else { return }
+            lastSyncedGroupId = newGroupId
             syncGroupMembersToPlayers()
         }
     }

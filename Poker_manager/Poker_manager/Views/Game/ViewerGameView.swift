@@ -3,14 +3,19 @@ import SwiftUI
 import Charts
 
 struct ViewerGameView: View {
-    @ObservedObject private var firebaseService = FirebaseService.shared
+    private let firebaseService = FirebaseService.shared
+    @State private var activeRoom: GameRoom?
     @State private var showSettlement = false
+    
+    private var currencySymbol: String {
+        firebaseService.activeGroup?.currencySymbol ?? "₪"
+    }
     
     var body: some View {
         ZStack {
             AppTheme.background.ignoresSafeArea()
             
-            if let room = firebaseService.activeRoom {
+            if let room = activeRoom {
                 VStack(spacing: 0) {
                     // Header
                     HStack {
@@ -62,7 +67,7 @@ struct ViewerGameView: View {
                                     .foregroundStyle(AppTheme.textSecondary)
                                     .font(.subheadline)
                                 
-                                Text("₪\(room.totalPot, specifier: "%.0f")")
+                                Text("\(currencySymbol)\(room.totalPot, specifier: "%.0f")")
                                     .font(.system(size: 56, weight: .bold, design: .rounded))
                                     .foregroundStyle(AppTheme.accent)
                                     .shadow(color: AppTheme.accent.opacity(0.3), radius: 20)
@@ -142,7 +147,7 @@ struct ViewerGameView: View {
                                                 .foregroundStyle(Color.white.opacity(0.15))
                                             AxisValueLabel() {
                                                 if let val = value.as(Double.self) {
-                                                    Text("₪\(String(format: "%.0f", val))")
+                                                    Text("\(currencySymbol)\(String(format: "%.0f", val))")
                                                         .font(.caption2)
                                                         .foregroundStyle(AppTheme.textSecondary)
                                                 }
@@ -175,14 +180,14 @@ struct ViewerGameView: View {
                                         PlayerRow(
                                             name: player.name,
                                             detail: "\(player.buyInCount) buy-ins",
-                                            amount: "₪\(String(format: "%.0f", player.totalBuyIn))",
+                                            amount: "\(currencySymbol)\(String(format: "%.0f", player.totalBuyIn))",
                                             isPositive: true
                                         )
                                     } else {
                                         PlayerRow(
                                             name: player.name,
                                             detail: player.profitLoss >= 0 ? "Won" : "Lost",
-                                            amount: "₪\(String(format: "%.0f", abs(player.profitLoss)))",
+                                            amount: "\(currencySymbol)\(String(format: "%.0f", abs(player.profitLoss)))",
                                             isPositive: player.profitLoss >= 0
                                         )
                                     }
@@ -225,7 +230,7 @@ struct ViewerGameView: View {
                                             
                                             Spacer()
                                             
-                                            Text("\(event.isCashOut == true ? "-" : "+")₪\(String(format: "%.0f", event.amount))")
+                                            Text("\(event.isCashOut == true ? "-" : "+")\(currencySymbol)\(String(format: "%.0f", event.amount))")
                                                 .foregroundStyle(event.isCashOut == true ? .orange : AppTheme.accent)
                                                 .fontWeight(.bold)
                                         }
@@ -252,9 +257,15 @@ struct ViewerGameView: View {
             }
         }
         .sheet(isPresented: $showSettlement) {
-            if let room = firebaseService.activeRoom {
-                ViewerSettlementSheet(settlement: room.settlement)
+            if let room = activeRoom {
+                ViewerSettlementSheet(settlement: room.settlement, currencySymbol: currencySymbol)
             }
+        }
+        .onAppear {
+            activeRoom = firebaseService.activeRoom
+        }
+        .onReceive(firebaseService.$activeRoom) { room in
+            activeRoom = room
         }
     }
 }
@@ -263,6 +274,7 @@ struct ViewerGameView: View {
 
 struct ViewerSettlementSheet: View {
     let settlement: [SettlementEntry]
+    let currencySymbol: String
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -289,7 +301,7 @@ struct ViewerSettlementSheet: View {
                         
                         Spacer()
                         
-                        Text("₪\(String(format: "%.0f", entry.amount))")
+                        Text("\(currencySymbol)\(String(format: "%.0f", entry.amount))")
                             .foregroundStyle(.white)
                             .fontWeight(.bold)
                     }

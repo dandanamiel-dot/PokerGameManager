@@ -2,12 +2,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /rooms/{roomCode} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow write: if request.auth != null;
     }
     
     match /groups/{groupId} {
-      allow read: if request.auth != null;
+      // Only members can read group data; joining requires knowing the exact doc ID
+      allow read: if request.auth != null
+        && request.auth.uid in resource.data.memberIds;
       allow create: if request.auth != null;
       // Allow update if user is already a member OR is joining (adding themselves)
       allow update: if request.auth != null

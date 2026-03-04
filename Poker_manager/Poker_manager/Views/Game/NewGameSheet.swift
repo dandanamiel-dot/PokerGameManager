@@ -12,6 +12,7 @@ struct NewGameSheet: View {
     @State private var selectedPlayerIds: Set<UUID> = []
     @State private var buyInAmount: String = "500" // Default buy-in
     @State private var showAddPlayer = false
+    @State private var saveErrorMessage: String?
     
     init(groupId: String = "local") {
         self.groupId = groupId
@@ -97,11 +98,20 @@ struct NewGameSheet: View {
                     
                     Spacer()
                     
+                    // #12 Min 2 player hint
+                    if selectedPlayerIds.count < 2 && !players.isEmpty {
+                        Text(selectedPlayerIds.isEmpty ? "Select at least 2 players to start" : "Need one more player — select at least 2")
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .transition(.opacity)
+                    }
+                    
                     AccentButton(title: "Start Game") {
                         startGame()
                     }
-                    .disabled(selectedPlayerIds.isEmpty)
-                    .opacity(selectedPlayerIds.isEmpty ? 0.5 : 1)
+                    .disabled(selectedPlayerIds.count < 2)
+                    .opacity(selectedPlayerIds.count < 2 ? 0.5 : 1)
                     .padding(.bottom)
                 }
             }
@@ -111,7 +121,15 @@ struct NewGameSheet: View {
         .sheet(isPresented: $showAddPlayer) {
             AddPlayerView(groupId: groupId)
         }
-    }
+        .alert("Save Error", isPresented: .init(
+            get: { saveErrorMessage != nil },
+            set: { if !$0 { saveErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(saveErrorMessage ?? "")
+        }
+    } // end var body
     
     private func startGame() {
         let game = GameSession(groupId: groupId)
@@ -127,7 +145,13 @@ struct NewGameSheet: View {
         }
         
         modelContext.insert(game)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            print("⚠️ SwiftData save error: \(error)")
+            saveErrorMessage = "Failed to save game: \(error.localizedDescription)"
+            return
+        }
         dismiss()
     }
 }
@@ -140,6 +164,7 @@ struct AddPlayerView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @FocusState private var nameFieldFocused: Bool
+    @State private var saveErrorMessage: String?
     
     init(groupId: String = "local") {
         self.groupId = groupId
@@ -181,8 +206,13 @@ struct AddPlayerView: View {
                     AccentButton(title: "Save Player", icon: "checkmark") {
                         let player = Player(name: name.trimmingCharacters(in: .whitespaces), groupId: groupId)
                         modelContext.insert(player)
-                        try? modelContext.save()
-                        dismiss()
+                        do {
+                            try modelContext.save()
+                            dismiss()
+                        } catch {
+                            print("⚠️ SwiftData save error: \(error)")
+                            saveErrorMessage = "Failed to save player: \(error.localizedDescription)"
+                        }
                     }
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                     .opacity(name.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
@@ -201,6 +231,14 @@ struct AddPlayerView: View {
         }
         .onAppear {
             nameFieldFocused = true
+        }
+        .alert("Save Error", isPresented: .init(
+            get: { saveErrorMessage != nil },
+            set: { if !$0 { saveErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(saveErrorMessage ?? "")
         }
     }
 }

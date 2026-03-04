@@ -1,6 +1,5 @@
 
 import SwiftUI
-import SwiftUI
 import SwiftData
 import Combine
 
@@ -8,7 +7,8 @@ class GameViewModel: ObservableObject {
     @Published var activeSession: GameSession
     @Published var availablePlayers: [Player] = []
     @Published var showSettlementView = false
-    
+    @Published var saveError: String?        // Issue 6: surfaced to views for alert
+
     private var modelContext: ModelContext
     private let groupId: String
     
@@ -27,39 +27,49 @@ class GameViewModel: ObservableObject {
             )
             availablePlayers = try modelContext.fetch(descriptor)
         } catch {
-            print("Failed to fetch players")
+            print("Failed to fetch players: \(error)")
         }
     }
     
     func addBuyIn(player: Player, amount: Double) {
-        // Check if player already in session
         if let existingSession = activeSession.playerSessions.first(where: { $0.player?.id == player.id }) {
             existingSession.addBuyIn(amount: amount)
         } else {
             let newSession = PlayerSession(player: player)
             newSession.addBuyIn(amount: amount)
             activeSession.playerSessions.append(newSession)
-            
-            // Need to save correctly context
             modelContext.insert(newSession)
         }
-        
-        try? modelContext.save()
+        saveContext()
         objectWillChange.send()
     }
     
     func calculateSettlements() {
         activeSession.status = .completed
         activeSession.endedAt = Date()
-        try? modelContext.save()
+        saveContext()
     }
     
     /// Cash out a player mid-game
     func cashOutPlayer(session: PlayerSession, amount: Double) {
         session.cashOut = amount
         session.cashOutTime = Date()
-        try? modelContext.save()
+        saveContext()
         objectWillChange.send()
+    }
+
+    // MARK: - Issue 6: Safe save helper
+    /// Saves the model context, logging errors and surfacing them via `saveError`.
+    private func saveContext() {
+        do {
+            try modelContext.save()
+        } catch {
+            let msg = "Failed to save game data: \(error.localizedDescription)"
+            print("⚠️ SwiftData save error: \(error)")
+            DispatchQueue.main.async { [weak self] in
+                self?.saveError = msg
+            }
+        }
     }
 
     struct SettlementTransaction: Identifiable {
@@ -82,25 +92,20 @@ class GameViewModel: ObservableObject {
             }
         }
         
-        // Sort specifically to optimize/match similar amounts (simple greedy algorithm)
         debtors.sort { $0.amount > $1.amount }
         creditors.sort { $0.amount > $1.amount }
         
         var transactions: [SettlementTransaction] = []
-        
         var i = 0
         var j = 0
         
         while i < debtors.count && j < creditors.count {
             let debt = debtors[i].amount
             let credit = creditors[j].amount
-            
             let amount = min(debt, credit)
             transactions.append(SettlementTransaction(from: debtors[i].name, to: creditors[j].name, amount: amount))
-            
             debtors[i].amount -= amount
             creditors[j].amount -= amount
-            
             if debtors[i].amount < 0.01 { i += 1 }
             if creditors[j].amount < 0.01 { j += 1 }
         }

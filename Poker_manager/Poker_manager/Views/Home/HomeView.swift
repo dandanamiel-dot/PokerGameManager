@@ -10,14 +10,18 @@ struct HomeView: View {
     
     @Environment(\.modelContext) private var modelContext
     @Query private var recentGames: [GameSession]
-    @ObservedObject private var firebaseService = FirebaseService.shared
+    private let firebaseService = FirebaseService.shared
+    @State private var userGroups: [PokerGroup] = []
     
     @State private var showNewGameSheet = false
     @State private var selectedGame: GameSession?
     @State private var gameToEdit: GameSession?
+    @State private var gameToDelete: GameSession?       // #10 delete confirmation
+    @State private var showDeleteGameAlert = false
     @State private var showCreateGroup = false
     @State private var showJoinGroup = false
     @State private var selectedGroup: PokerGroup?
+    @State private var showSettings = false
     
     init(group: PokerGroup?, currencySymbol: String, groupId: String, onExit: (() -> Void)? = nil) {
         self.group = group
@@ -46,48 +50,63 @@ struct HomeView: View {
     
     var body: some View {
         ZStack {
-            AppTheme.backgroundGradient
+            AppTheme.background
                 .ignoresSafeArea()
             
             ScrollView {
                 VStack(spacing: 24) {
-                    // Header
+                    // Header — matches GameSession style
                     HStack {
+                        // Left: back button or spacer for balance
                         if let onExit = onExit {
                             Button {
                                 onExit()
                             } label: {
-                                Image(systemName: "arrow.left")
+                                Image(systemName: "chevron.left")
                                     .foregroundStyle(.white)
-                                    .padding(12)
-                                    .background(AppTheme.cardBackground)
+                                    .padding()
+                                    .background(Color.black.opacity(0.3))
                                     .clipShape(Circle())
                             }
+                        } else {
+                            Color.clear.frame(width: 44, height: 44)
                         }
                         
-                        VStack(alignment: .leading) {
+                        Spacer()
+                        
+                        // Center: page title
+                        VStack(spacing: 2) {
                             if let group = group {
                                 Text(group.name)
-                                    .font(.headline)
+                                    .font(.caption)
                                     .foregroundStyle(AppTheme.accent)
-                            } else {
-                                Text("Poker Manager")
-                                    .font(.headline)
-                                    .foregroundStyle(AppTheme.textSecondary)
                             }
                             Text(greeting)
-                                .font(.largeTitle)
-                                .fontWeight(.bold)
+                                .font(.headline)
                                 .foregroundStyle(.white)
                         }
+                        
                         Spacer()
-                        Image(systemName: "bell.badge")
-                            .foregroundStyle(.white)
-                            .padding(12)
-                            .background(AppTheme.cardBackground)
-                            .clipShape(Circle())
+                        
+                        // Right: action buttons
+                        HStack(spacing: 4) {
+                            if group != nil {
+                                Button {
+                                    showSettings = true
+                                } label: {
+                                    Image(systemName: "gearshape")
+                                        .foregroundStyle(.white)
+                                        .padding()
+                                }
+                            }
+                            Image(systemName: "bell")
+                                .foregroundStyle(.white)
+                                .padding()
+                        }
+                        .frame(width: 44)
                     }
-                    .padding(.top, 60)
+                    .padding(.horizontal)
+                    .padding(.top, 16)
                     
                     if let group = group {
                         GroupCodeHeader(groupId: group.groupId)
@@ -97,7 +116,7 @@ struct HomeView: View {
                     // MARK: - Groups Section (only in local mode)
                     
                     if group == nil {
-                        if firebaseService.userGroups.isEmpty {
+                        if userGroups.isEmpty {
                             GlowCard {
                                 VStack(spacing: 16) {
                                     Image(systemName: "person.3.fill")
@@ -177,7 +196,7 @@ struct HomeView: View {
                                     }
                                 }
                                 
-                                ForEach(firebaseService.userGroups) { group in
+                                ForEach(userGroups) { group in
                                     GlowCard {
                                         HStack {
                                             VStack(alignment: .leading, spacing: 4) {
@@ -264,6 +283,30 @@ struct HomeView: View {
                                 .foregroundStyle(AppTheme.textSecondary)
                         }
                         
+                        // #9 Empty state
+                        if recentGames.isEmpty {
+                            VStack(spacing: 16) {
+                                Image(systemName: "suit.spade.fill")
+                                    .font(.system(size: 44))
+                                    .foregroundStyle(AppTheme.accent.opacity(0.4))
+                                Text("No Games Yet")
+                                    .font(.title3.bold())
+                                    .foregroundStyle(.white)
+                                Text("Start your first session to\nsee results here.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(AppTheme.textSecondary)
+                                    .multilineTextAlignment(.center)
+                                AccentButton(title: "Start New Game", icon: "plus") {
+                                    showNewGameSheet = true
+                                }
+                                .padding(.top, 4)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 32)
+                            .background(AppTheme.cardBackground)
+                            .cornerRadius(20)
+                        }
+                        
                         ForEach(recentGames.prefix(3)) { game in
                             GlowCard {
                                 HStack {
@@ -318,7 +361,8 @@ struct HomeView: View {
                                 }
                                 
                                 Button(role: .destructive) {
-                                    deleteGame(game)
+                                    gameToDelete = game
+                                    showDeleteGameAlert = true
                                 } label: {
                                     Label("Delete Game", systemImage: "trash")
                                 }
@@ -331,28 +375,53 @@ struct HomeView: View {
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 100)
-                .sheet(isPresented: $showNewGameSheet) {
-                    NewGameSheet(groupId: groupId)
-                }
-                .sheet(item: $gameToEdit) { game in
-                    EditGameSheet(game: game)
-                }
-                .sheet(isPresented: $showCreateGroup) {
-                    CreateGroupView()
-                }
-                .sheet(isPresented: $showJoinGroup) {
-                    JoinGroupView()
-                }
-                .fullScreenCover(item: $selectedGame) { game in
-                    GameSessionView(session: game, modelContext: modelContext)
-                }
-                .fullScreenCover(item: $selectedGroup) { group in
-                    GroupDashboardView(group: group)
+            }
+        }
+        .sheet(isPresented: $showNewGameSheet) {
+            NewGameSheet(groupId: groupId)
+        }
+        .sheet(item: $gameToEdit) { game in
+            EditGameSheet(game: game)
+        }
+        .sheet(isPresented: $showCreateGroup) {
+            CreateGroupView()
+        }
+        .sheet(isPresented: $showJoinGroup) {
+            JoinGroupView()
+        }
+        .fullScreenCover(item: $selectedGame) { game in
+            GameSessionView(session: game, modelContext: modelContext, currencySymbol: currencySymbol)
+        }
+        .fullScreenCover(item: $selectedGroup) { group in
+            GroupDashboardView(group: group)
+        }
+        .sheet(isPresented: $showSettings) {
+            if let group = group {
+                GroupSettingsSheet(group: group)
+            }
+        }
+        .alert("Delete Game?", isPresented: $showDeleteGameAlert) {
+            Button("Cancel", role: .cancel) { gameToDelete = nil }
+            Button("Delete", role: .destructive) {
+                if let game = gameToDelete {
+                    deleteGame(game)
+                    gameToDelete = nil
                 }
             }
+        } message: {
+            Text("This will permanently delete all session data. This cannot be undone.")
         }
         .onAppear {
             firebaseService.loadUserGroups()
+            userGroups = firebaseService.userGroups
+            
+            // Issue 7: Auto-resume an active session if found on launch
+            if selectedGame == nil, let active = activeGame {
+                selectedGame = active
+            }
+        }
+        .onReceive(firebaseService.$userGroups) { groups in
+            userGroups = groups
         }
     }
     

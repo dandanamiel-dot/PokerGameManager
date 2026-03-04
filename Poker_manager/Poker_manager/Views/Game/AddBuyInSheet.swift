@@ -5,6 +5,7 @@ import SwiftData
 struct AddBuyInSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: GameViewModel
+    let currencySymbol: String
     
     @State private var selectedPlayer: Player?
     @State private var amount: String = ""
@@ -59,7 +60,7 @@ struct AddBuyInSheet: View {
                         .foregroundStyle(AppTheme.textSecondary)
                     
                     HStack {
-                        Text("₪")
+                        Text(currencySymbol)
                             .foregroundStyle(AppTheme.accent)
                             .font(.title)
                         TextField("0", text: $amount)
@@ -74,11 +75,11 @@ struct AddBuyInSheet: View {
                             let currentInvestment = viewModel.activeSession.playerSessions.first(where: { $0.player?.id == player.id })?.totalBuyIn ?? 0
                             
                             HStack {
-                                Text("Current Investment: ₪\(String(format: "%.0f", currentInvestment))")
+                                Text("Current Investment: \(currencySymbol)\(String(format: "%.0f", currentInvestment))")
                                 Spacer()
                                 if let value = Double(amount), value > 0 {
                                     let newTotal = currentInvestment + value
-                                    Text("New Total: ₪\(String(format: "%.0f", newTotal))")
+                                    Text("New Total: \(currencySymbol)\(String(format: "%.0f", newTotal))")
                                         .foregroundStyle(AppTheme.accent)
                                         .bold()
                                 }

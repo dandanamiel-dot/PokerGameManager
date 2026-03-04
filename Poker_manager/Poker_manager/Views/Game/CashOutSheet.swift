@@ -5,6 +5,7 @@ import SwiftData
 struct CashOutSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: GameViewModel
+    let currencySymbol: String
     
     @State private var selectedSession: PlayerSession?
     @State private var amount: String = ""
@@ -51,7 +52,7 @@ struct CashOutSheet: View {
                                     Text(player?.name ?? "Unknown")
                                         .font(.caption)
                                         .foregroundStyle(.white)
-                                    Text("In: ₪\(String(format: "%.0f", session.totalBuyIn))")
+                                    Text("In: \(currencySymbol)\(String(format: "%.0f", session.totalBuyIn))")
                                         .font(.caption2)
                                         .foregroundStyle(.gray)
                                 }
@@ -73,7 +74,7 @@ struct CashOutSheet: View {
                         .foregroundStyle(AppTheme.textSecondary)
                     
                     HStack {
-                        Text("₪")
+                        Text(currencySymbol)
                             .foregroundStyle(AppTheme.accent)
                             .font(.title)
                         
@@ -89,7 +90,7 @@ struct CashOutSheet: View {
                         let profit = value - session.totalBuyIn
                         HStack(spacing: 4) {
                             Image(systemName: profit >= 0 ? "arrow.up.right" : "arrow.down.right")
-                            Text("\(profit >= 0 ? "+" : "")₪\(String(format: "%.0f", profit))")
+                            Text("\(profit >= 0 ? "+" : "")\(currencySymbol)\(String(format: "%.0f", profit))")
                         }
                         .font(.subheadline.bold())
                         .foregroundStyle(profit >= 0 ? AppTheme.profit : AppTheme.loss)

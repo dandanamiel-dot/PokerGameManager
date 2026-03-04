@@ -11,6 +11,7 @@ import FirebaseCore
 
 @main
 struct Poker_managerApp: App {
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
     
     init() {
         FirebaseApp.configure()
@@ -19,6 +20,12 @@ struct Poker_managerApp: App {
     var body: some Scene {
         WindowGroup {
             WelcomeView()
+                .fullScreenCover(isPresented: .init(
+                    get: { !hasSeenOnboarding },
+                    set: { if !$0 { hasSeenOnboarding = true } }
+                )) {
+                    OnboardingView(hasSeenOnboarding: $hasSeenOnboarding)
+                }
         }
         .modelContainer(for: [
             Player.self,

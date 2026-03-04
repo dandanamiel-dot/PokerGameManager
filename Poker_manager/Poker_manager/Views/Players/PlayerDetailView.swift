@@ -4,6 +4,7 @@ import Charts
 
 struct PlayerDetailView: View {
     let player: Player
+    let currencySymbol: String
     
     // Computed stats
     var gamesPlayed: Int {
@@ -43,14 +44,14 @@ struct PlayerDetailView: View {
                             .fontWeight(.bold)
                             .foregroundStyle(.white)
                     }
-                    .padding(.top, 20)
+                    .padding(.top, 16)
                     
                     // Stats Grid
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
                         StatCard(title: "Games Played", value: "\(gamesPlayed)", icon: "gamecontroller", trend: nil)
-                        StatCard(title: "Total Invested", value: "₪\(String(format: "%.0f", totalInvested))", icon: "arrow.down.circle", trend: nil)
-                        StatCard(title: "Net Profit", value: "₪\(String(format: "%.0f", netProfit))", icon: "banknote", trend: nil)
-                        StatCard(title: "Best Win", value: "₪\(String(format: "%.0f", bestWin))", icon: "trophy", trend: nil)
+                        StatCard(title: "Total Invested", value: "\(currencySymbol)\(String(format: "%.0f", totalInvested))", icon: "arrow.down.circle", trend: nil)
+                        StatCard(title: "Net Profit", value: "\(currencySymbol)\(String(format: "%.0f", netProfit))", icon: "banknote", trend: nil)
+                        StatCard(title: "Best Win", value: "\(currencySymbol)\(String(format: "%.0f", bestWin))", icon: "trophy", trend: nil)
                     }
                     .padding(.horizontal)
                     
@@ -89,19 +90,27 @@ struct PlayerDetailView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal)
                         
-                        ForEach(player.sessions.prefix(10)) { session in
+                        ForEach(player.sessions.prefix(10).sorted(by: { $0.joinedAt > $1.joinedAt })) { session in
                             GlowCard {
                                 HStack {
-                                    VStack(alignment: .leading) {
-                                        Text(session.profitLoss >= 0 ? "Won" : "Lost")
-                                            .foregroundStyle(session.profitLoss >= 0 ? AppTheme.profit : AppTheme.loss)
-                                            .fontWeight(.bold)
-                                        Text("Buy-in: ₪\(String(format: "%.0f", session.totalBuyIn))")
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: session.profitLoss >= 0 ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+                                                .font(.caption)
+                                                .foregroundStyle(session.profitLoss >= 0 ? AppTheme.profit : AppTheme.loss)
+                                            Text(session.profitLoss >= 0 ? "Won" : "Lost")
+                                                .foregroundStyle(session.profitLoss >= 0 ? AppTheme.profit : AppTheme.loss)
+                                                .fontWeight(.bold)
+                                        }
+                                        Text(session.joinedAt.formatted(date: .abbreviated, time: .omitted))
                                             .font(.caption)
                                             .foregroundStyle(AppTheme.textSecondary)
+                                        Text("Buy-in: \(currencySymbol)\(String(format: "%.0f", session.totalBuyIn))")
+                                            .font(.caption2)
+                                            .foregroundStyle(AppTheme.textSecondary.opacity(0.7))
                                     }
                                     Spacer()
-                                    Text("₪\(String(format: "%.0f", session.profitLoss))")
+                                    Text("\(session.profitLoss >= 0 ? "+" : "")\(currencySymbol)\(String(format: "%.0f", session.profitLoss))")
                                         .font(.title3)
                                         .fontWeight(.bold)
                                         .foregroundStyle(session.profitLoss >= 0 ? AppTheme.profit : AppTheme.loss)
@@ -111,7 +120,7 @@ struct PlayerDetailView: View {
                         }
                     }
                 }
-                .padding(.bottom, 40)
+                .padding(.bottom, 100)
             }
         }
         .navigationBarTitleDisplayMode(.inline)

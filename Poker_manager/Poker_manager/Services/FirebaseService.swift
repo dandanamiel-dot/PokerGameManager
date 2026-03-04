@@ -56,9 +56,9 @@ class FirebaseService: ObservableObject {
     
     // MARK: - Room Code Generation
     
-    /// Generate a unique 4-digit room code
+    /// Generate a unique 6-digit room code
     private func generateRoomCode() -> String {
-        let code = String(format: "%04d", Int.random(in: 1000...9999))
+        let code = String(format: "%06d", Int.random(in: 100000...999999))
         return code
     }
     
@@ -228,12 +228,10 @@ class FirebaseService: ObservableObject {
     
     // MARK: - Group Code Generation
     
-    /// Generate a 6-char alphanumeric group code like "PKR-A3F"
+    /// Generate a 6-char alphanumeric group code like "A3F29X"
     private func generateGroupCode() -> String {
         let chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no I/O/0/1 for clarity
-        let part1 = "PKR"
-        let part2 = String((0..<3).map { _ in chars.randomElement()! })
-        return "\(part1)-\(part2)"
+        return String((0..<6).map { _ in chars.randomElement()! })
     }
     
     // MARK: - Group: Create

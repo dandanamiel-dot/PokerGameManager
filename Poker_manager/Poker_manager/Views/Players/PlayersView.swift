@@ -4,6 +4,7 @@ import SwiftData
 
 struct PlayersView: View {
     let groupId: String
+    let currencySymbol: String
     
     @Environment(\.modelContext) private var modelContext
     @Query private var players: [Player]
@@ -11,9 +12,11 @@ struct PlayersView: View {
     @State private var playerToEdit: Player?
     @State private var playerToDelete: Player?
     @State private var showDeleteConfirmation = false
+    @State private var saveErrorMessage: String?
     
-    init(groupId: String) {
+    init(groupId: String, currencySymbol: String) {
         self.groupId = groupId
+        self.currencySymbol = currencySymbol
         let gId = groupId
         _players = Query(
             filter: #Predicate<Player> { $0.groupId == gId },
@@ -22,21 +25,26 @@ struct PlayersView: View {
     }
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                AppTheme.background.ignoresSafeArea()
-                
-                VStack(spacing: 0) {
-                    // MARK: - Header
-                    HStack {
-                        Text("Players")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.white)
-                        
-                        Spacer()
-                        
-                        // 3-dots header menu
+        NavigationStack {
+        ZStack {
+            AppTheme.background.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // MARK: - Header (matches GameSession style)
+                HStack {
+                    // Left spacer for balance
+                    Color.clear.frame(width: 44, height: 44)
+                    
+                    Spacer()
+                    
+                    Text("Players")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                    
+                    Spacer()
+                    
+                    // Right: actions
+                    HStack(spacing: 0) {
                         Menu {
                             Button {
                                 showAddPlayer = true
@@ -44,28 +52,15 @@ struct PlayersView: View {
                                 Label("Add Player", systemImage: "person.badge.plus")
                             }
                         } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.title3)
-                                .foregroundStyle(.white)
-                                .padding(12)
-                                .background(AppTheme.cardBackground)
-                                .clipShape(Circle())
-                        }
-                        
-                        // Quick add button
-                        Button {
-                            showAddPlayer = true
-                        } label: {
                             Image(systemName: "plus")
-                                .font(.title2)
                                 .foregroundStyle(AppTheme.accent)
-                                .padding(12)
-                                .background(AppTheme.cardBackground)
-                                .clipShape(Circle())
+                                .padding()
                         }
                     }
-                    .padding()
-                    .padding(.top, 40)
+                    .frame(width: 44)
+                }
+                .padding(.horizontal)
+                .padding(.top, 16)
                     
                     // MARK: - Player List
                     if players.isEmpty {
@@ -93,7 +88,7 @@ struct PlayersView: View {
                         ScrollView {
                             LazyVStack(spacing: 8) {
                                 ForEach(players) { player in
-                                    NavigationLink(destination: PlayerDetailView(player: player)) {
+                                    NavigationLink(destination: PlayerDetailView(player: player, currencySymbol: currencySymbol)) {
                                         playerRow(player)
                                     }
                                     .contextMenu {
@@ -116,10 +111,10 @@ struct PlayersView: View {
                             .padding(.bottom, 100)
                         }
                     }
-                }
-            }
-            .navigationBarHidden(true)
-        }
+            } // end VStack
+        } // end ZStack
+        .navigationBarHidden(true)
+        } // end NavigationStack
         .sheet(isPresented: $showAddPlayer) {
             AddPlayerView(groupId: groupId)
         }
@@ -137,6 +132,14 @@ struct PlayersView: View {
             if let player = playerToDelete {
                 Text("Are you sure you want to delete \(player.name)? This action cannot be undone.")
             }
+        }
+        .alert("Save Error", isPresented: .init(
+            get: { saveErrorMessage != nil },
+            set: { if !$0 { saveErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(saveErrorMessage ?? "")
         }
     }
     
@@ -196,7 +199,12 @@ struct PlayersView: View {
     private func deletePlayer(_ player: Player) {
         withAnimation {
             modelContext.delete(player)
-            try? modelContext.save()
+            do {
+                try modelContext.save()
+            } catch {
+                print("⚠️ SwiftData save error: \(error)")
+                saveErrorMessage = "Failed to delete player: \(error.localizedDescription)"
+            }
             playerToDelete = nil
         }
     }

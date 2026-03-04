@@ -2,7 +2,7 @@
 import SwiftUI
 
 struct CreateGroupView: View {
-    @ObservedObject private var firebaseService = FirebaseService.shared
+    let firebaseService = FirebaseService.shared
     @Environment(\.dismiss) private var dismiss
     
     var onGroupCreated: ((PokerGroup) -> Void)?
@@ -71,6 +71,9 @@ struct CreateGroupView: View {
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(AppTheme.accent.opacity(0.3), lineWidth: 1)
                         )
+                        .onChange(of: groupName) { _, newValue in
+                            if newValue.count > 30 { groupName = String(newValue.prefix(30)) }
+                        }
                 }
                 
                 // Display Name
@@ -88,6 +91,9 @@ struct CreateGroupView: View {
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(AppTheme.accent.opacity(0.3), lineWidth: 1)
                         )
+                        .onChange(of: displayName) { _, newValue in
+                            if newValue.count > 30 { displayName = String(newValue.prefix(30)) }
+                        }
                 }
                 
                 // Currency Picker

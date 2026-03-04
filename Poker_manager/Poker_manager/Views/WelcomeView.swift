@@ -49,13 +49,21 @@ struct WelcomeView: View {
                 Spacer()
                 
                 // MARK: - Logo
-                Image("AppLogo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 72, height: 72)
-                    .opacity(showLogo ? 1 : 0)
-                    .scaleEffect(showLogo ? 1 : 0.6)
-                    .padding(.bottom, 20)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(AppTheme.cardBackground)
+                        .frame(width: 80, height: 80)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18)
+                                .stroke(AppTheme.accent.opacity(0.25), lineWidth: 1.5)
+                        )
+                    Text("♠")
+                        .font(.system(size: 44, weight: .bold))
+                        .foregroundStyle(AppTheme.accent)
+                }
+                .opacity(showLogo ? 1 : 0)
+                .scaleEffect(showLogo ? 1 : 0.6)
+                .padding(.bottom, 20)
                 
                 // MARK: - Bold Headline
                 VStack(spacing: 6) {
@@ -112,7 +120,7 @@ struct WelcomeView: View {
                     }
                     .padding(.horizontal, 20)
                     
-                    Text("Nano Banana Pro")
+                    Text("All-In Poker Manager")
                         .font(.caption)
                         .foregroundStyle(AppTheme.textSecondary.opacity(0.5))
                 }

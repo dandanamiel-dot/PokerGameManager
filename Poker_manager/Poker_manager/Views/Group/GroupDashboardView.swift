@@ -7,7 +7,8 @@ struct GroupDashboardView: View {
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var firebaseService = FirebaseService.shared
+    private let firebaseService = FirebaseService.shared
+    @State private var activeGroupSnapshot: PokerGroup?
     @Query private var allGames: [GameSession]
     
     @State private var showNewGameSheet = false
@@ -38,7 +39,7 @@ struct GroupDashboardView: View {
                         membersSection
                         
                         // Game Actions
-                        if firebaseService.activeGroup?.groupId == group.groupId {
+                        if currentGroup.groupId == group.groupId {
                             AccentButton(title: "Start New Game", icon: "plus") {
                                 showNewGameSheet = true
                             }
@@ -62,7 +63,11 @@ struct GroupDashboardView: View {
             GameSessionView(session: game, modelContext: modelContext)
         }
         .onAppear {
+            activeGroupSnapshot = firebaseService.activeGroup
             firebaseService.listenToGroup(groupId: group.groupId)
+        }
+        .onReceive(firebaseService.$activeGroup) { updatedGroup in
+            activeGroupSnapshot = updatedGroup
         }
     }
     
@@ -210,6 +215,6 @@ struct GroupDashboardView: View {
     // MARK: - Helper
     
     private var currentGroup: PokerGroup {
-        firebaseService.activeGroup ?? group
+        activeGroupSnapshot ?? group
     }
 }

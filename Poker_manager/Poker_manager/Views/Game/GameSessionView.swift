@@ -12,16 +12,22 @@ struct GameSessionView: View {
     @State private var showCashOut = false
     @State private var showEndGame = false
     @State private var showShareRoom = false
+    @State private var showShareSummary = false    // #17 share game summary
     @State private var isCreatingRoom = false
+    @State private var selectedPlayerSession: PlayerSession?
     @State private var selectedDate: Date? // For interactive chart
     @State private var selectedPointId: UUID? // For discrete haptics
     @State private var chartData: [PotDataPoint] = [] // Cached for performance
-    @ObservedObject private var firebaseService = FirebaseService.shared
+    private let firebaseService = FirebaseService.shared
+    @State private var roomCode: String?
+    @State private var isHost: Bool = false
     private var isEmbedded: Bool
+    private let currencySymbol: String
     
-    init(session: GameSession, modelContext: ModelContext, isEmbedded: Bool = false) {
+    init(session: GameSession, modelContext: ModelContext, isEmbedded: Bool = false, currencySymbol: String = "₪") {
         _viewModel = StateObject(wrappedValue: GameViewModel(modelContext: modelContext, session: session))
         self.isEmbedded = isEmbedded
+        self.currencySymbol = currencySymbol
     }
     
     var body: some View {
@@ -64,7 +70,7 @@ struct GameSessionView: View {
                     
                     Menu {
                         if viewModel.activeSession.status == .active {
-                            if firebaseService.roomCode != nil && firebaseService.isHost {
+                            if roomCode != nil && isHost {
                                 Button {
                                     showShareRoom = true
                                 } label: {
@@ -99,6 +105,15 @@ struct GameSessionView: View {
                                 Label("Re-open Game", systemImage: "arrow.uturn.backward")
                             }
                         }
+                        
+                        // #17 Share game summary
+                        ShareLink(
+                            item: gameSummaryText,
+                            subject: Text("Poker Game Summary"),
+                            message: Text("Check out our game results!")
+                        ) {
+                            Label("Share Summary", systemImage: "square.and.arrow.up")
+                        }
                     } label: {
                         HStack(spacing: 6) {
                             if firebaseService.roomCode != nil && firebaseService.isHost {
@@ -123,14 +138,14 @@ struct GameSessionView: View {
                                 .foregroundStyle(AppTheme.textSecondary)
                                 .font(.subheadline)
                             
-                            Text("₪\(viewModel.activeSession.status == .active ? viewModel.activeSession.remainingPot : viewModel.activeSession.totalPot, specifier: "%.0f")")
+                            Text("\(currencySymbol)\(viewModel.activeSession.status == .active ? viewModel.activeSession.remainingPot : viewModel.activeSession.totalPot, specifier: "%.0f")")
                                 .font(.system(size: 56, weight: .bold, design: .rounded))
                                 .foregroundStyle(AppTheme.accent)
                                 .shadow(color: AppTheme.accent.opacity(0.3), radius: 20)
                             
                             // Show total buy-ins vs remaining if there are cash-outs
                             if viewModel.activeSession.status == .active && viewModel.activeSession.remainingPot != viewModel.activeSession.totalPot {
-                                Text("Total buy-ins: ₪\(viewModel.activeSession.totalPot, specifier: "%.0f")")
+                                Text("Total buy-ins: \(currencySymbol)\(viewModel.activeSession.totalPot, specifier: "%.0f")")
                                     .font(.caption)
                                     .foregroundStyle(AppTheme.textSecondary)
                             }
@@ -275,7 +290,7 @@ struct GameSessionView: View {
                                                             HStack(spacing: 4) {
                                                                 Text(nearestPoint.isCashOut ? "Cashed out:" : "Bought in:")
                                                                     .foregroundStyle(AppTheme.textSecondary)
-                                                                Text("\(nearestPoint.isCashOut ? "-" : "+")₪\(nearestPoint.eventAmount, specifier: "%.0f")")
+                                                                Text("\(nearestPoint.isCashOut ? "-" : "+")\(currencySymbol)\(nearestPoint.eventAmount, specifier: "%.0f")")
                                                                     .bold()
                                                                     .foregroundStyle(nearestPoint.isCashOut ? .orange : AppTheme.accent)
                                                             }
@@ -313,7 +328,7 @@ struct GameSessionView: View {
                                                 .foregroundStyle(Color.white.opacity(0.15))
                                             AxisValueLabel() {
                                                 if let val = value.as(Double.self) {
-                                                    Text("₪\(String(format: "%.0f", val))")
+                                                    Text("\(currencySymbol)\(String(format: "%.0f", val))")
                                                         .font(.caption2)
                                                         .foregroundStyle(AppTheme.textSecondary)
                                                 }
@@ -336,11 +351,11 @@ struct GameSessionView: View {
                         
                         // Recent Activities Component
                         if !viewModel.activeSession.playerSessions.isEmpty {
-                            RecentActivitiesFeed(session: viewModel.activeSession)
+                            RecentActivitiesFeed(session: viewModel.activeSession, currencySymbol: currencySymbol)
                         }
                         
                         // Game Statistics
-                        GameStatisticsRow(session: viewModel.activeSession)
+                        GameStatisticsRow(session: viewModel.activeSession, currencySymbol: currencySymbol)
                         
                         // Players List
                         LazyVStack(alignment: .leading, spacing: 16) {
@@ -351,33 +366,49 @@ struct GameSessionView: View {
                                 .padding(.horizontal)
                             
                             ForEach(viewModel.activeSession.playerSessions) { session in
-                                if viewModel.activeSession.status == .active {
-                                    HStack {
-                                        PlayerRow(
-                                            name: session.player?.name ?? "Unknown",
-                                            detail: session.hasCashedOut ? "Cashed out" : "\(session.buyIns.count) buy-ins",
-                                            amount: session.hasCashedOut ? "₪\(String(format: "%.0f", session.cashOut ?? 0))" : "₪\(String(format: "%.0f", session.totalBuyIn))",
-                                            isPositive: !session.hasCashedOut
-                                        )
-                                        
-                                        if session.hasCashedOut {
-                                            Text("OUT")
-                                                .font(.caption2.bold())
-                                                .foregroundStyle(AppTheme.accent)
-                                                .padding(.horizontal, 8)
-                                                .padding(.vertical, 4)
-                                                .background(AppTheme.accent.opacity(0.12))
-                                                .clipShape(Capsule())
+                                Button {
+                                    selectedPlayerSession = session
+                                } label: {
+                                    if viewModel.activeSession.status == .active {
+                                        HStack {
+                                            PlayerRow(
+                                                name: session.player?.name ?? "Unknown",
+                                                detail: session.hasCashedOut ? "Cashed out" : "\(session.buyIns.count) buy-ins",
+                                                amount: session.hasCashedOut ? "\(currencySymbol)\(String(format: "%.0f", session.cashOut ?? 0))" : "\(currencySymbol)\(String(format: "%.0f", session.totalBuyIn))",
+                                                isPositive: !session.hasCashedOut
+                                            )
+                                            
+                                            if session.hasCashedOut {
+                                                Text("OUT")
+                                                    .font(.caption2.bold())
+                                                    .foregroundStyle(AppTheme.accent)
+                                                    .padding(.horizontal, 8)
+                                                    .padding(.vertical, 4)
+                                                    .background(AppTheme.accent.opacity(0.12))
+                                                    .clipShape(Capsule())
+                                            }
+                                            
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption)
+                                                .foregroundStyle(AppTheme.textSecondary)
+                                                .padding(.trailing, 4)
+                                        }
+                                    } else {
+                                        HStack {
+                                            PlayerRow(
+                                                name: session.player?.name ?? "Unknown",
+                                                detail: session.profitLoss >= 0 ? "Won" : "Lost",
+                                                amount: "\(currencySymbol)\(String(format: "%.0f", abs(session.profitLoss)))",
+                                                isPositive: session.profitLoss >= 0
+                                            )
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption)
+                                                .foregroundStyle(AppTheme.textSecondary)
+                                                .padding(.trailing, 4)
                                         }
                                     }
-                                } else {
-                                    PlayerRow(
-                                        name: session.player?.name ?? "Unknown",
-                                        detail: session.profitLoss >= 0 ? "Won" : "Lost",
-                                        amount: "₪\(String(format: "%.0f", abs(session.profitLoss)))",
-                                        isPositive: session.profitLoss >= 0
-                                    )
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -386,48 +417,105 @@ struct GameSessionView: View {
             }
         }
         .sheet(isPresented: $showAddBuyIn) {
-            AddBuyInSheet(viewModel: viewModel)
+            AddBuyInSheet(viewModel: viewModel, currencySymbol: currencySymbol)
                 .onDisappear {
+                    // Rebuild chart after buy-in
+                    chartData = buildCumulativeData(from: viewModel.activeSession)
                     // Sync to Firebase after buy-in
-                    if firebaseService.isHost && firebaseService.roomCode != nil {
+                    if isHost && roomCode != nil {
                         firebaseService.syncRoom(from: viewModel.activeSession)
                     }
                 }
         }
         .sheet(isPresented: $showCashOut) {
-            CashOutSheet(viewModel: viewModel)
+            CashOutSheet(viewModel: viewModel, currencySymbol: currencySymbol)
                 .onDisappear {
-                    if firebaseService.isHost && firebaseService.roomCode != nil {
+                    // Rebuild chart after cash-out
+                    chartData = buildCumulativeData(from: viewModel.activeSession)
+                    if isHost && roomCode != nil {
                         firebaseService.syncRoom(from: viewModel.activeSession)
                     }
                 }
         }
         .sheet(isPresented: $showEndGame) {
-            EndGameSheet(viewModel: viewModel) {
+            EndGameSheet(viewModel: viewModel, onCalculateSettlement: {
                 // Sync settlement to Firebase
-                if firebaseService.isHost && firebaseService.roomCode != nil {
+                if isHost && roomCode != nil {
                     let transactions = viewModel.generateTransactions()
                     firebaseService.syncRoom(from: viewModel.activeSession)
                     firebaseService.syncSettlement(transactions: transactions.map { ($0.from, $0.to, $0.amount) })
                 }
                 viewModel.showSettlementView = true
-            }
+            }, currencySymbol: currencySymbol)
         }
         .sheet(isPresented: $viewModel.showSettlementView) {
-            SettlementView(viewModel: viewModel)
+            SettlementView(viewModel: viewModel, currencySymbol: currencySymbol)
         }
         .sheet(isPresented: $showShareRoom) {
-            if let code = firebaseService.roomCode {
+            if let code = roomCode {
                 ShareRoomSheet(roomCode: code)
             }
         }
+        .sheet(item: $selectedPlayerSession) { session in
+            PlayerGameDetailSheet(playerSession: session, currencySymbol: currencySymbol)
+        }
         .onAppear {
+            roomCode = firebaseService.roomCode
+            isHost = firebaseService.isHost
             viewModel.fetchPlayers()
             chartData = buildCumulativeData(from: viewModel.activeSession)
         }
-        .onChange(of: viewModel.activeSession.playerSessions) { _ in
+        .onReceive(firebaseService.$roomCode) { code in
+            roomCode = code
+        }
+        .onReceive(firebaseService.$isHost) { host in
+            isHost = host
+        }
+        .onChange(of: viewModel.activeSession.totalPot) { _, _ in
             chartData = buildCumulativeData(from: viewModel.activeSession)
         }
+        .alert("Save Error", isPresented: .init(
+            get: { viewModel.saveError != nil },
+            set: { if !$0 { viewModel.saveError = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(viewModel.saveError ?? "")
+        }
+    }
+    
+    // MARK: - Share Summary (#17)
+    private var gameSummaryText: String {
+        let session = viewModel.activeSession
+        let dateStr = session.date.formatted(date: .abbreviated, time: .shortened)
+        let statusStr = session.status == .active ? "🟢 In Progress" : "✅ Completed"
+        let potStr = "\(currencySymbol)\(String(format: "%.0f", session.totalPot))"
+        
+        var lines: [String] = [
+            "🃏 All-In Poker Manager",
+            "📅 \(dateStr)  \(statusStr)",
+            "💰 Total Pot: \(potStr)",
+            "👥 Players: \(session.playerCount)",
+            "─────────────────"
+        ]
+        
+        let sorted = session.playerSessions.sorted { ($0.profitLoss) > ($1.profitLoss) }
+        for ps in sorted {
+            let name = ps.player?.name ?? "Unknown"
+            let buyIn = "\(currencySymbol)\(String(format: "%.0f", ps.totalBuyIn))"
+            if ps.hasCashedOut {
+                let net = ps.profitLoss
+                let sign = net >= 0 ? "+" : ""
+                let netStr = "\(sign)\(currencySymbol)\(String(format: "%.0f", net))"
+                lines.append("• \(name): bought in \(buyIn) → \(netStr)")
+            } else {
+                lines.append("• \(name): bought in \(buyIn) (still playing)")
+            }
+        }
+        
+        lines.append("─────────────────")
+        lines.append("Shared from All-In Poker Manager 🃏")
+        return lines.joined(separator: "\n")
     }
     
     // MARK: - Chart Helpers
@@ -472,6 +560,7 @@ struct GameSessionView: View {
 
 struct GameStatisticsRow: View {
     let session: GameSession
+    let currencySymbol: String
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -481,11 +570,11 @@ struct GameStatisticsRow: View {
                 .padding(.horizontal)
             
             HStack(spacing: 12) {
-                StatCard(title: "Total Chips", value: "₪\(String(format: "%.0f", session.remainingPot))")
+                StatCard(title: "Total Chips", value: "\(currencySymbol)\(String(format: "%.0f", session.remainingPot))")
                 StatCard(title: "Players", value: "\(session.playerSessions.count)")
                 
                 let cashOutVal = session.playerSessions.reduce(0.0) { $0 + ($1.cashOut ?? 0) }
-                StatCard(title: "Cash Outs", value: "₪\(String(format: "%.0f", cashOutVal))")
+                StatCard(title: "Cash Outs", value: "\(currencySymbol)\(String(format: "%.0f", cashOutVal))")
             }
             .padding(.horizontal)
         }
@@ -555,6 +644,7 @@ struct PulseDot: View {
 
 struct RecentActivitiesFeed: View {
     let session: GameSession
+    let currencySymbol: String
     @State private var showPastEvents = false
     
     private var events: [ActivityEvent] {
@@ -652,7 +742,7 @@ struct RecentActivitiesFeed: View {
         .cornerRadius(16)
         .padding(.horizontal)
         .sheet(isPresented: $showPastEvents) {
-            PastActivitiesSheet(events: events)
+            PastActivitiesSheet(events: events, currencySymbol: currencySymbol)
         }
     }
     
@@ -665,9 +755,9 @@ struct RecentActivitiesFeed: View {
         case .joined:
             actionStr = AttributedString("joined the game")
         case .buyIn(let amount):
-            actionStr = AttributedString("bought in for ₪\(String(format: "%.0f", amount))")
+            actionStr = AttributedString("bought in for \(currencySymbol)\(String(format: "%.0f", amount))")
         case .cashOut(let amount):
-            actionStr = AttributedString("cashed out ₪\(String(format: "%.0f", amount))")
+            actionStr = AttributedString("cashed out \(currencySymbol)\(String(format: "%.0f", amount))")
         case .ended:
             return AttributedString("Game ended")
         }

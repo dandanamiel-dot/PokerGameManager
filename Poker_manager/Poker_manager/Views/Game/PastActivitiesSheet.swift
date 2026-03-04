@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PastActivitiesSheet: View {
     let events: [ActivityEvent]
+    let currencySymbol: String
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -67,9 +68,9 @@ struct PastActivitiesSheet: View {
         case .joined:
             actionStr = AttributedString("joined the game")
         case .buyIn(let amount):
-            actionStr = AttributedString("bought in for ₪\(String(format: "%.0f", amount))")
+            actionStr = AttributedString("bought in for \(currencySymbol)\(String(format: "%.0f", amount))")
         case .cashOut(let amount):
-            actionStr = AttributedString("cashed out ₪\(String(format: "%.0f", amount))")
+            actionStr = AttributedString("cashed out \(currencySymbol)\(String(format: "%.0f", amount))")
         case .ended:
             return AttributedString("Game ended")
         }

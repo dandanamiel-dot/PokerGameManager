@@ -6,7 +6,7 @@ struct GroupSettingsSheet: View {
     let group: PokerGroup
     
     @Environment(\.modelContext) private var modelContext
-    @ObservedObject private var firebaseService = FirebaseService.shared
+    let firebaseService = FirebaseService.shared
     @Environment(\.dismiss) private var dismiss
     @State private var showLeaveConfirmation = false
     @State private var showDeleteConfirmation = false

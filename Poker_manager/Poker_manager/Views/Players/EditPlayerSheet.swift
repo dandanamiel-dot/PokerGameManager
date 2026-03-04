@@ -8,6 +8,7 @@ struct EditPlayerSheet: View {
     
     let player: Player
     @State private var playerName: String = ""
+    @State private var saveErrorMessage: String?
     
     var body: some View {
         NavigationView {
@@ -59,11 +60,25 @@ struct EditPlayerSheet: View {
         .onAppear {
             playerName = player.name
         }
+        .alert("Save Error", isPresented: .init(
+            get: { saveErrorMessage != nil },
+            set: { if !$0 { saveErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(saveErrorMessage ?? "")
+        }
     }
     
     private func saveChanges() {
         player.name = playerName.trimmingCharacters(in: .whitespaces)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            print("⚠️ SwiftData save error: \(error)")
+            saveErrorMessage = "Failed to save player: \(error.localizedDescription)"
+            return
+        }
         dismiss()
     }
 }
