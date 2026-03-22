@@ -70,8 +70,7 @@ struct SettlementView: View {
                     // Share Settlement
                     ShareLink(
                         item: settlementText,
-                        subject: Text("Poker Settlement"),
-                        message: Text("Here's the settlement breakdown:")
+                        subject: Text("Poker Settlement")
                     ) {
                         HStack {
                             Image(systemName: "square.and.arrow.up")
@@ -97,14 +96,21 @@ struct SettlementView: View {
     }
     
     // MARK: - Settlement Text for Sharing
-    
     private var settlementText: String {
         let transactions = viewModel.generateTransactions()
-        var lines: [String] = ["🃏 Poker Settlement"]
-        lines.append("---")
-        for t in transactions {
-            lines.append("\(t.from) → \(t.to): \(currencySymbol)\(String(format: "%.0f", t.amount))")
+        var lines: [String] = [
+            "🃏 Poker Game Settlement 🃏",
+            "--------------------------"
+        ]
+        
+        if transactions.isEmpty {
+            lines.append("No settlements needed. Everyone is balanced!")
+        } else {
+            for t in transactions {
+                lines.append("💸 \(t.from) pays \(t.to): \(currencySymbol)\(String(format: "%.0f", t.amount))")
+            }
         }
+        
         return lines.joined(separator: "\n")
     }
 }

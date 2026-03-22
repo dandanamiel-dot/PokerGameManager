@@ -365,7 +365,15 @@ struct GameSessionView: View {
                                 .foregroundStyle(.white)
                                 .padding(.horizontal)
                             
-                            ForEach(viewModel.activeSession.playerSessions) { session in
+                            let sortedSessions = viewModel.activeSession.playerSessions.sorted { s1, s2 in
+                                if viewModel.activeSession.status == .active {
+                                    return s1.totalBuyIn > s2.totalBuyIn
+                                } else {
+                                    return s1.profitLoss > s2.profitLoss
+                                }
+                            }
+                            
+                            ForEach(sortedSessions) { session in
                                 Button {
                                     selectedPlayerSession = session
                                 } label: {

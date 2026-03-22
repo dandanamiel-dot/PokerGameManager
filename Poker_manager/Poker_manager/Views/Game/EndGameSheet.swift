@@ -42,7 +42,8 @@ struct EndGameSheet: View {
                         
                         // MARK: - Player Cards
                         LazyVStack(spacing: AppTheme.spacingM) {
-                            ForEach($viewModel.activeSession.playerSessions) { $session in
+                            let sortedSessions = viewModel.activeSession.playerSessions.sorted { $0.totalBuyIn > $1.totalBuyIn }
+                            ForEach(sortedSessions) { session in
                                 let isFocused = focusedField == session.id
                                 let alreadyCashedOut = session.cashOutTime != nil
                                 
