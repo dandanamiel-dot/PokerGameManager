@@ -415,10 +415,7 @@ struct HomeView: View {
             firebaseService.loadUserGroups()
             userGroups = firebaseService.userGroups
             
-            // Issue 7: Auto-resume an active session if found on launch
-            if selectedGame == nil, let active = activeGame {
-                selectedGame = active
-            }
+            // Auto-resume logic removed: user prefers to land on the group home page first.
         }
         .onReceive(firebaseService.$userGroups) { groups in
             userGroups = groups
