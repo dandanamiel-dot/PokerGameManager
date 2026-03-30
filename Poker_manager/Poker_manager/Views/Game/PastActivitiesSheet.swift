@@ -22,10 +22,15 @@ struct PastActivitiesSheet: View {
                                 
                                 // Timeline dot & line
                                 VStack(spacing: 0) {
-                                    Circle()
-                                        .fill(AppTheme.accent)
-                                        .frame(width: 12, height: 12)
-                                        .shadow(color: AppTheme.accent.opacity(0.8), radius: 4)
+                                    if index == events.count - 1 {
+                                        PulseDot()
+                                            .padding(.top, 2)
+                                    } else {
+                                        Circle()
+                                            .fill(AppTheme.accent)
+                                            .frame(width: 12, height: 12)
+                                            .shadow(color: AppTheme.accent.opacity(0.8), radius: 4)
+                                    }
                                     
                                     if index < events.count - 1 {
                                         Rectangle()

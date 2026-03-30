@@ -28,7 +28,7 @@ struct MainTabView: View {
             
             // Main Content
             TabView(selection: $selectedTab) {
-                HomeView(group: group, currencySymbol: currencySymbol, groupId: groupId, onExit: onExit)
+                HomeView(group: group, currencySymbol: currencySymbol, groupId: groupId, onExit: onExit, onSeeAllGames: { selectedTab = 2 })
                     .tag(0)
                 
                 LiveGameTabView(groupId: groupId)

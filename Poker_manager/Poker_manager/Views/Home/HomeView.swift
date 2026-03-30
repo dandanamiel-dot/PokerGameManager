@@ -7,6 +7,7 @@ struct HomeView: View {
     let currencySymbol: String
     let groupId: String
     var onExit: (() -> Void)?
+    var onSeeAllGames: (() -> Void)?
     
     @Environment(\.modelContext) private var modelContext
     @Query private var recentGames: [GameSession]
@@ -23,11 +24,12 @@ struct HomeView: View {
     @State private var selectedGroup: PokerGroup?
     @State private var showSettings = false
     
-    init(group: PokerGroup?, currencySymbol: String, groupId: String, onExit: (() -> Void)? = nil) {
+    init(group: PokerGroup?, currencySymbol: String, groupId: String, onExit: (() -> Void)? = nil, onSeeAllGames: (() -> Void)? = nil) {
         self.group = group
         self.currencySymbol = currencySymbol
         self.groupId = groupId
         self.onExit = onExit
+        self.onSeeAllGames = onSeeAllGames
         let gId = groupId
         _recentGames = Query(
             filter: #Predicate<GameSession> { $0.groupId == gId },
@@ -279,8 +281,10 @@ struct HomeView: View {
                                 .fontWeight(.bold)
                                 .foregroundStyle(.white)
                             Spacer()
-                            Text("See all")
-                                .foregroundStyle(AppTheme.textSecondary)
+                            Button("See all") {
+                                onSeeAllGames?()
+                            }
+                            .foregroundStyle(AppTheme.accent)
                         }
                         
                         // #9 Empty state
@@ -393,7 +397,9 @@ struct HomeView: View {
             GameSessionView(session: game, modelContext: modelContext, currencySymbol: currencySymbol)
         }
         .fullScreenCover(item: $selectedGroup) { group in
-            GroupDashboardView(group: group)
+            MainTabView(group: group) {
+                selectedGroup = nil
+            }
         }
         .sheet(isPresented: $showSettings) {
             if let group = group {
