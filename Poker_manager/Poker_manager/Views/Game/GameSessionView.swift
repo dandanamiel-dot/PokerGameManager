@@ -21,6 +21,10 @@ struct GameSessionView: View {
     private let firebaseService = FirebaseService.shared
     @State private var roomCode: String?
     @State private var isHost: Bool = false
+    @State private var isAdmin: Bool = false
+    @State private var isLive: Bool = false
+    @State private var showRoomMembers = false
+    @State private var actionError: String?
     private var isEmbedded: Bool
     private let currencySymbol: String
     
@@ -70,24 +74,20 @@ struct GameSessionView: View {
                     
                     Menu {
                         if viewModel.activeSession.status == .active {
-                            if roomCode != nil && isHost {
+                            if isSharedLive {
                                 Button {
                                     showShareRoom = true
                                 } label: {
                                     Label("Show Room Code", systemImage: "antenna.radiowaves.left.and.right")
                                 }
+                                Button {
+                                    showRoomMembers = true
+                                } label: {
+                                    Label("Players & Admins", systemImage: "person.2.badge.gearshape")
+                                }
                             } else {
                                 Button {
-                                    isCreatingRoom = true
-                                    firebaseService.createRoom(from: viewModel.activeSession) { result in
-                                        isCreatingRoom = false
-                                        switch result {
-                                        case .success:
-                                            showShareRoom = true
-                                        case .failure(let error):
-                                            print("Failed to create room: \(error)")
-                                        }
-                                    }
+                                    shareLive(showCode: true)
                                 } label: {
                                     Label(isCreatingRoom ? "Creating..." : "Share Game Live", systemImage: "square.and.arrow.up")
                                 }
@@ -98,8 +98,7 @@ struct GameSessionView: View {
                         if viewModel.activeSession.status == .completed {
                             Button {
                                 withAnimation {
-                                    viewModel.activeSession.status = .active
-                                    viewModel.activeSession.endedAt = nil
+                                    viewModel.reopenGame()
                                 }
                             } label: {
                                 Label("Re-open Game", systemImage: "arrow.uturn.backward")
@@ -116,9 +115,9 @@ struct GameSessionView: View {
                         }
                     } label: {
                         HStack(spacing: 6) {
-                            if firebaseService.roomCode != nil && firebaseService.isHost {
+                            if isSharedLive {
                                 Image(systemName: "antenna.radiowaves.left.and.right")
-                                    .foregroundStyle(AppTheme.accent)
+                                    .foregroundStyle(isLive ? AppTheme.accent : .orange)
                                     .font(.caption)
                             }
                             Image(systemName: "ellipsis")
@@ -429,10 +428,6 @@ struct GameSessionView: View {
                 .onDisappear {
                     // Rebuild chart after buy-in
                     chartData = buildCumulativeData(from: viewModel.activeSession)
-                    // Sync to Firebase after buy-in
-                    if isHost && roomCode != nil {
-                        firebaseService.syncRoom(from: viewModel.activeSession)
-                    }
                 }
         }
         .sheet(isPresented: $showCashOut) {
@@ -440,19 +435,11 @@ struct GameSessionView: View {
                 .onDisappear {
                     // Rebuild chart after cash-out
                     chartData = buildCumulativeData(from: viewModel.activeSession)
-                    if isHost && roomCode != nil {
-                        firebaseService.syncRoom(from: viewModel.activeSession)
-                    }
                 }
         }
         .sheet(isPresented: $showEndGame) {
             EndGameSheet(viewModel: viewModel, onCalculateSettlement: {
-                // Sync settlement to Firebase
-                if isHost && roomCode != nil {
-                    let transactions = viewModel.generateTransactions()
-                    firebaseService.syncRoom(from: viewModel.activeSession)
-                    firebaseService.syncSettlement(transactions: transactions.map { ($0.from, $0.to, $0.amount) })
-                }
+                // The live room is updated by viewModel.calculateSettlements()
                 viewModel.showSettlementView = true
             }, currencySymbol: currencySymbol)
         }
@@ -464,20 +451,51 @@ struct GameSessionView: View {
                 ShareRoomSheet(roomCode: code)
             }
         }
+        .sheet(isPresented: $showRoomMembers) {
+            RoomMembersSheet()
+        }
         .sheet(item: $selectedPlayerSession) { session in
             PlayerGameDetailSheet(playerSession: session, currencySymbol: currencySymbol)
         }
         .onAppear {
             roomCode = firebaseService.roomCode
             isHost = firebaseService.isHost
+            isAdmin = firebaseService.isAdmin
+            isLive = firebaseService.isLive
             viewModel.fetchPlayers()
             chartData = buildCumulativeData(from: viewModel.activeSession)
+            connectLiveRoom()
         }
         .onReceive(firebaseService.$roomCode) { code in
             roomCode = code
         }
         .onReceive(firebaseService.$isHost) { host in
             isHost = host
+        }
+        .onReceive(firebaseService.$isAdmin) { admin in
+            isAdmin = admin
+        }
+        .onReceive(firebaseService.$isLive) { live in
+            isLive = live
+        }
+        .onReceive(firebaseService.$activeRoom) { room in
+            guard let room else { return }
+            viewModel.mergeRemote(room, currentUserId: firebaseService.currentUserId)
+            chartData = buildCumulativeData(from: viewModel.activeSession)
+        }
+        .onReceive(firebaseService.$isAuthenticated) { authenticated in
+            if authenticated { connectLiveRoom() }
+        }
+        .onReceive(firebaseService.$actionError) { message in
+            actionError = message
+        }
+        .alert("Live Game", isPresented: .init(
+            get: { actionError != nil },
+            set: { if !$0 { firebaseService.actionError = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(actionError ?? "")
         }
         .onChange(of: viewModel.activeSession.totalPot) { _, _ in
             chartData = buildCumulativeData(from: viewModel.activeSession)
@@ -489,6 +507,46 @@ struct GameSessionView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(viewModel.saveError ?? "")
+        }
+    }
+    
+    // MARK: - Live room
+    
+    /// This game is shared and this phone is attached to its room.
+    private var isSharedLive: Bool {
+        guard let code = viewModel.activeSession.roomCode else { return false }
+        return roomCode == code && isAdmin
+    }
+    
+    /// Reconnect to this game's room after a restart, or share group games
+    /// automatically so members see them live without a code.
+    private func connectLiveRoom() {
+        let session = viewModel.activeSession
+        guard session.status == .active, firebaseService.isAuthenticated else { return }
+        if let code = session.roomCode {
+            if firebaseService.roomCode != code {
+                firebaseService.joinRoom(code: code) { _ in }
+            }
+        } else if session.groupId != "local" {
+            shareLive(showCode: false)
+        }
+    }
+    
+    private func shareLive(showCode: Bool) {
+        guard !isCreatingRoom else { return }
+        isCreatingRoom = true
+        let symbol = firebaseService.activeGroup?.groupId == viewModel.activeSession.groupId
+            ? (firebaseService.activeGroup?.currencySymbol ?? currencySymbol)
+            : currencySymbol
+        firebaseService.createRoom(from: viewModel.activeSession, currencySymbol: symbol) { result in
+            isCreatingRoom = false
+            switch result {
+            case .success(let code):
+                viewModel.attachRoom(code: code)
+                if showCode { showShareRoom = true }
+            case .failure(let error):
+                print("Failed to create room: \(error)")
+            }
         }
     }
     

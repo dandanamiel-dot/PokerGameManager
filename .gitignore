@@ -91,3 +91,8 @@ iOSInjectionProject/
 
 # Mac system files
 .DS_Store
+
+# Firestore rules tests
+firestore-tests/node_modules/
+firebase-debug.log
+firestore-debug.log

@@ -17,6 +17,10 @@ final class GameSession {
     
     var endedAt: Date?
     
+    /// Code of the live room this game is shared in, so the host reconnects
+    /// to it after the app restarts.
+    var roomCode: String?
+    
     @Relationship(deleteRule: .cascade)
     var playerSessions: [PlayerSession] = []
     

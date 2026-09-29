@@ -1,22 +1,125 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /rooms/{roomCode} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+
+    function signedIn() {
+      return request.auth != null;
     }
-    
+
+    // ---------------------------------------------------------------
+    // Live game rooms. The 6-digit code is the invite: anyone signed in
+    // who knows it can watch. Only the host and co-admins can change the
+    // game, and only the host can take admin rights away.
+    // ---------------------------------------------------------------
+    match /rooms/{roomCode} {
+
+      function adminsOf(data) {
+        return [data.hostId].concat(data.get('adminIds', []));
+      }
+
+      function isRoomAdmin() {
+        return request.auth.uid in adminsOf(resource.data);
+      }
+
+      function isRoomHost() {
+        return request.auth.uid == resource.data.hostId;
+      }
+
+      function adminChangeAllowed() {
+        let before = resource.data.get('adminIds', []);
+        let after = request.resource.data.get('adminIds', []);
+        // Host can add or remove; other admins can only add.
+        return after == before || isRoomHost() || after.hasAll(before);
+      }
+
+      // Direct lookups by code. Listing everything is not allowed.
+      allow get: if signedIn();
+
+      // Group members can see their group's live games without a code.
+      allow list: if signedIn()
+        && resource.data.groupId is string
+        && request.auth.uid in get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.memberIds;
+
+      allow create: if signedIn()
+        && request.resource.data.hostId == request.auth.uid
+        && request.resource.data.roomCode == roomCode
+        && request.resource.data.get('adminIds', [request.auth.uid]) == [request.auth.uid];
+
+      allow update: if signedIn()
+        && isRoomAdmin()
+        && request.resource.data.hostId == resource.data.hostId
+        && request.resource.data.roomCode == resource.data.roomCode
+        && adminChangeAllowed();
+
+      allow delete: if signedIn() && isRoomHost();
+
+      // Who's watching. Everyone writes only their own entry.
+      match /viewers/{uid} {
+        allow read: if signedIn();
+        allow create, update: if signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.uid == uid
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 40;
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // Poker groups. The 6-character code is the invite: anyone signed in
+    // can look a group up by code to join it. Joining or leaving can only
+    // add or remove yourself; everything else is the creator's.
+    // ---------------------------------------------------------------
     match /groups/{groupId} {
-      // Only members can read group data; joining requires knowing the exact doc ID
-      allow read: if request.auth != null
-        && request.auth.uid in resource.data.memberIds;
-      allow create: if request.auth != null;
-      // Allow update if user is already a member OR is joining (adding themselves)
-      allow update: if request.auth != null
-        && (request.auth.uid in resource.data.memberIds
-            || request.auth.uid in request.resource.data.memberIds);
-      allow delete: if request.auth != null
-        && resource.data.createdBy == request.auth.uid;
+
+      function isMember() {
+        return request.auth.uid in resource.data.memberIds;
+      }
+
+      function isCreator() {
+        return resource.data.createdBy == request.auth.uid;
+      }
+
+      function changedKeys() {
+        return request.resource.data.diff(resource.data).affectedKeys();
+      }
+
+      // Only yourself added to or removed from memberIds, and only your own
+      // display name touched.
+      function onlyOwnMembershipChanged() {
+        let before = resource.data.memberIds.toSet();
+        let after = request.resource.data.memberIds.toSet();
+        let names = request.resource.data.get('memberNames', {})
+          .diff(resource.data.get('memberNames', {})).affectedKeys();
+        return after.difference(before).union(before.difference(after)).hasOnly([request.auth.uid])
+          && names.hasOnly([request.auth.uid]);
+      }
+
+      // v1.0 joins rewrite the whole document; createdAt can come back a
+      // microsecond off after the round trip, which is not a real change.
+      function createdAtUnchanged() {
+        return !('createdAt' in changedKeys())
+          || (request.resource.data.createdAt > resource.data.createdAt - duration.value(1, 's')
+              && request.resource.data.createdAt < resource.data.createdAt + duration.value(1, 's'));
+      }
+
+      allow get: if signedIn();
+
+      // The app lists groups with memberIds array-contains your uid.
+      allow list: if signedIn() && isMember();
+
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.memberIds == [request.auth.uid];
+
+      allow update: if signedIn() && (
+        (isCreator() && request.resource.data.createdBy == resource.data.createdBy)
+        || (changedKeys().hasOnly(['memberIds', 'memberNames', 'createdAt'])
+            && createdAtUnchanged()
+            && onlyOwnMembershipChanged())
+      );
+
+      allow delete: if signedIn() && isCreator();
     }
   }
 }

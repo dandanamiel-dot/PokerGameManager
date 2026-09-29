@@ -3,12 +3,27 @@ import SwiftUI
 import Charts
 
 struct ViewerGameView: View {
+    @Environment(\.modelContext) private var modelContext
     private let firebaseService = FirebaseService.shared
     @State private var activeRoom: GameRoom?
     @State private var showSettlement = false
+    @State private var isAdmin = false
+    @State private var isLive = false
+    @State private var viewers: [ViewerPresence] = []
+    @State private var showBuyIn = false
+    @State private var showCashOut = false
+    @State private var showEndGame = false
+    @State private var showMembers = false
+    @State private var actionError: String?
+    @State private var savedToHistory = false
     
     private var currencySymbol: String {
-        firebaseService.activeGroup?.currencySymbol ?? "₪"
+        activeRoom?.currencySymbol ?? firebaseService.activeGroup?.currencySymbol ?? "₪"
+    }
+    
+    /// Co-admins (not the host, who has the full game screen) can run the game from here.
+    private func canManage(_ room: GameRoom) -> Bool {
+        isAdmin && room.isActive && room.supportsSharedControl
     }
     
     var body: some View {
@@ -38,11 +53,22 @@ struct ViewerGameView: View {
                             
                             HStack(spacing: 4) {
                                 Circle()
-                                    .fill(room.status == "active" ? Color.green : Color.gray)
+                                    .fill(liveColor(room))
                                     .frame(width: 6, height: 6)
-                                Text(room.status == "active" ? "LIVE" : "ENDED")
+                                Text(liveLabel(room))
                                     .font(.caption2.bold())
-                                    .foregroundStyle(room.status == "active" ? .green : .gray)
+                                    .foregroundStyle(liveColor(room))
+                                if room.isActive {
+                                    Text("·")
+                                        .font(.caption2)
+                                        .foregroundStyle(.gray)
+                                    Image(systemName: "eye.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.gray)
+                                    Text("\(activeViewerCount)")
+                                        .font(.caption2.bold())
+                                        .foregroundStyle(.gray)
+                                }
                             }
                         }
                         
@@ -59,6 +85,10 @@ struct ViewerGameView: View {
                     }
                     .padding()
                     
+                    if canManage(room) {
+                        adminBar
+                    }
+                    
                     ScrollView {
                         VStack(spacing: 24) {
                             // Pot Display
@@ -73,6 +103,17 @@ struct ViewerGameView: View {
                                     .shadow(color: AppTheme.accent.opacity(0.3), radius: 20)
                             }
                             .padding(.vertical, 20)
+                            
+                            // Last activity, ticking so it always reads "just now", "2 min ago"...
+                            if room.isActive, let last = room.buyInTimeline.last {
+                                TimelineView(.periodic(from: .now, by: 30)) { context in
+                                    Text("\(feedDescription(last)) · \(relativeTime(last.timestamp, now: context.date))")
+                                        .font(.footnote)
+                                        .foregroundStyle(AppTheme.textSecondary)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal)
+                                }
+                            }
                             
                             // Status indicator
                             if room.status == "completed" {
@@ -202,7 +243,7 @@ struct ViewerGameView: View {
                                         .foregroundStyle(.white)
                                         .padding(.horizontal)
                                     
-                                    ForEach(room.buyInTimeline.suffix(5).reversed()) { event in
+                                    ForEach(room.buyInTimeline.suffix(10).reversed()) { event in
                                         HStack {
                                             Image(systemName: event.isCashOut == true ? "arrow.down.right.circle.fill" : "dollarsign.circle.fill")
                                                 .foregroundStyle(event.isCashOut == true ? .orange : AppTheme.accent)
@@ -223,7 +264,7 @@ struct ViewerGameView: View {
                                                             .clipShape(Capsule())
                                                     }
                                                 }
-                                                Text(event.timestamp, style: .time)
+                                                Text(eventSubtitle(event))
                                                     .font(.caption)
                                                     .foregroundStyle(.gray)
                                             }
@@ -239,8 +280,26 @@ struct ViewerGameView: View {
                                         .background(AppTheme.cardBackground.opacity(0.5))
                                         .cornerRadius(12)
                                         .padding(.horizontal)
+                                        .transition(.move(edge: .top).combined(with: .opacity))
                                     }
                                 }
+                                .animation(.spring(response: 0.4), value: room.buyInTimeline.count)
+                            }
+                            
+                            // Keep a copy of a finished game on this phone
+                            if !room.isActive && room.hostId != firebaseService.currentUserId {
+                                Button {
+                                    saveToHistory(room)
+                                } label: {
+                                    Label(savedToHistory ? "Saved to History" : "Save to My History",
+                                          systemImage: savedToHistory ? "checkmark.circle.fill" : "tray.and.arrow.down")
+                                        .font(.headline)
+                                        .foregroundStyle(savedToHistory ? .green : AppTheme.accent)
+                                        .padding(.vertical, 12)
+                                        .padding(.horizontal, 24)
+                                        .background(Capsule().stroke(AppTheme.accent.opacity(0.4), lineWidth: 1.5))
+                                }
+                                .disabled(savedToHistory)
                             }
                         }
                         .padding(.bottom, 40)
@@ -261,11 +320,147 @@ struct ViewerGameView: View {
                 ViewerSettlementSheet(settlement: room.settlement, currencySymbol: currencySymbol)
             }
         }
+        .sheet(isPresented: $showBuyIn) {
+            if let room = activeRoom {
+                RoomBuyInSheet(room: room, currencySymbol: currencySymbol)
+            }
+        }
+        .sheet(isPresented: $showCashOut) {
+            if let room = activeRoom {
+                RoomCashOutSheet(room: room, currencySymbol: currencySymbol)
+            }
+        }
+        .sheet(isPresented: $showEndGame) {
+            if let room = activeRoom {
+                RoomEndGameSheet(room: room, currencySymbol: currencySymbol)
+            }
+        }
+        .sheet(isPresented: $showMembers) {
+            RoomMembersSheet()
+        }
+        .alert("Live Game", isPresented: .init(
+            get: { actionError != nil },
+            set: { if !$0 { firebaseService.actionError = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(actionError ?? "")
+        }
         .onAppear {
             activeRoom = firebaseService.activeRoom
+            isAdmin = firebaseService.isAdmin
+            isLive = firebaseService.isLive
+            viewers = firebaseService.viewers
+            refreshSavedState()
         }
         .onReceive(firebaseService.$activeRoom) { room in
             activeRoom = room
+            refreshSavedState()
+        }
+        .onReceive(firebaseService.$isAdmin) { admin in
+            isAdmin = admin
+        }
+        .onReceive(firebaseService.$isLive) { live in
+            isLive = live
+        }
+        .onReceive(firebaseService.$viewers) { list in
+            viewers = list
+        }
+        .onReceive(firebaseService.$actionError) { message in
+            actionError = message
+        }
+    }
+    
+    // MARK: - Admin controls
+    
+    private var adminBar: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "crown.fill")
+                Text("You're an admin of this game")
+            }
+            .font(.caption.bold())
+            .foregroundStyle(AppTheme.accent)
+            
+            HStack(spacing: 10) {
+                adminButton("Buy-in", icon: "plus.circle.fill") { showBuyIn = true }
+                adminButton("Cash Out", icon: "arrow.down.right.circle.fill") { showCashOut = true }
+                adminButton("End", icon: "flag.checkered") { showEndGame = true }
+                adminButton("Admins", icon: "person.2.fill") { showMembers = true }
+            }
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+    }
+    
+    private func adminButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.title3)
+                Text(title)
+                    .font(.caption2.bold())
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(AppTheme.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12).stroke(AppTheme.accent.opacity(0.3), lineWidth: 1)
+            )
+        }
+    }
+    
+    // MARK: - Live helpers
+    
+    private var activeViewerCount: Int {
+        let now = Date()
+        return viewers.filter { $0.isActive(at: now) }.count
+    }
+    
+    private func liveLabel(_ room: GameRoom) -> String {
+        if !room.isActive { return "ENDED" }
+        return isLive ? "LIVE" : "RECONNECTING"
+    }
+    
+    private func liveColor(_ room: GameRoom) -> Color {
+        if !room.isActive { return .gray }
+        return isLive ? .green : .orange
+    }
+    
+    private func feedDescription(_ event: BuyInEvent) -> String {
+        let amount = "\(currencySymbol)\(String(format: "%.0f", event.amount))"
+        return event.isCashOut == true
+            ? "\(event.playerName) cashed out \(amount)"
+            : "\(event.playerName) bought in \(amount)"
+    }
+    
+    private func eventSubtitle(_ event: BuyInEvent) -> String {
+        let time = event.timestamp.formatted(date: .omitted, time: .shortened)
+        guard let recorder = event.recordedBy, !recorder.isEmpty else { return time }
+        return "\(time) · by \(recorder)"
+    }
+    
+    private func relativeTime(_ date: Date, now: Date) -> String {
+        if now.timeIntervalSince(date) < 60 { return "just now" }
+        return RelativeDateTimeFormatter().localizedString(for: date, relativeTo: now)
+    }
+    
+    // MARK: - History
+    
+    private func refreshSavedState() {
+        guard let room = activeRoom else { return }
+        savedToHistory = RoomHistoryImporter.hasSaved(roomCode: room.roomCode, in: modelContext)
+    }
+    
+    private func saveToHistory(_ room: GameRoom) {
+        let groupId = room.groupId ?? firebaseService.activeGroup?.groupId ?? "local"
+        do {
+            try RoomHistoryImporter.save(room, groupId: groupId, in: modelContext)
+            savedToHistory = true
+        } catch {
+            firebaseService.actionError = "Couldn't save this game: \(error.localizedDescription)"
         }
     }
 }

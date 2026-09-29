@@ -12,6 +12,35 @@ A beautiful, modern iOS app for managing poker cash games built with SwiftUI.
 - 🌙 **Premium Dark Theme**: Eye-catching neon green accents on dark background
 - 📱 **Custom Tab Bar**: Smooth, animated floating tab bar navigation
 
+## Live games and co-admins
+
+- A game started in a group is shared live automatically. Group members see it in their Live tab and can watch with one tap; anyone else can join with the 6-digit room code.
+- The live room in Firestore (`rooms/{code}`) is the source of truth while a game runs. The host and co-admins apply actions (buy-in, cash-out, end game) in Firestore transactions via `RoomReducer`, so two admins tapping at once never overwrite each other. Actions that fail offline are retried when the connection is back.
+- The host can make any viewer an admin (Players & Admins). Admins can run the game from their own phone if the host leaves; only the host can remove admins.
+- The room logic lives in `Poker_manager/Poker_manager/LiveCore/` (plain Foundation, no Firebase).
+
+## Tests
+
+```bash
+# Live-game logic (macOS, Xcode 26)
+swift test
+
+# Firestore security rules (needs Node 20+ and Java 21 for the emulator)
+cd firestore-tests && npm install && npm test
+```
+
+GitHub Actions runs both, plus a simulator build of the app, on every pull request.
+
+## Deploying Firestore rules
+
+The app and `firestore.rules` ship together. After the App Store update is approved, deploy the rules:
+
+```bash
+firebase deploy --only firestore:rules --project <your-firebase-project-id>
+```
+
+The rules stay compatible with v1.0 clients (hosts can still share games, members can still join groups).
+
 ## Technology Stack
 
 - **SwiftUI**: Modern declarative UI framework
