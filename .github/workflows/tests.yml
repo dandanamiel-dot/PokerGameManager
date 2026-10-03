@@ -1,0 +1,58 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  firestore-rules:
+    name: Firestore rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: firestore-tests/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+        working-directory: firestore-tests
+      - run: npm test
+        working-directory: firestore-tests
+
+  live-core:
+    name: Live game logic (swift test)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test
+
+  app-build:
+    name: App builds
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build for the iOS simulator
+        run: |
+          xcodebuild -version
+          set +e
+          xcodebuild build \
+            -project Poker_manager/Poker_manager.xcodeproj \
+            -target Poker_manager \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            SYMROOT="$PWD/DerivedData/Build/Products" \
+            OBJROOT="$PWD/DerivedData/Build/Intermediates" \
+            CODE_SIGNING_ALLOWED=NO > build.log 2>&1
+          status=$?
+          tail -n 40 build.log
+          if [ $status -ne 0 ]; then
+            # Surface compiler errors as annotations on the PR
+            grep -E "(error|fatal error):" build.log | sort -u | head -n 40 | sed 's/^/::error::/'
+          fi
+          exit $status

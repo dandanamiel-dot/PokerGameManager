@@ -30,12 +30,12 @@ struct ShareRoomSheet: View {
                     .foregroundStyle(.gray)
                     .tracking(2)
                 
-                HStack(spacing: 12) {
-                    ForEach(Array(roomCode), id: \.self) { digit in
+                HStack(spacing: 8) {
+                    ForEach(Array(roomCode.enumerated()), id: \.offset) { _, digit in
                         Text(String(digit))
-                            .font(.system(size: 44, weight: .bold, design: .monospaced))
+                            .font(.system(size: 34, weight: .bold, design: .monospaced))
                             .foregroundStyle(.white)
-                            .frame(width: 60, height: 72)
+                            .frame(width: 44, height: 64)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.white.opacity(0.08))
@@ -81,8 +81,8 @@ struct ShareRoomSheet: View {
             // Info
             VStack(spacing: 6) {
                 Label("Players join from their device", systemImage: "iphone.gen3")
-                Label("They see the live pot & buy-ins", systemImage: "eye")
-                Label("Only you control the game", systemImage: "crown")
+                Label("Group members see the game in their Live tab", systemImage: "eye")
+                Label("Make someone an admin in Players & Admins", systemImage: "crown")
             }
             .font(.footnote)
             .foregroundStyle(.gray)
@@ -95,7 +95,7 @@ struct ShareRoomSheet: View {
             } label: {
                 Text("Done")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(

@@ -39,8 +39,10 @@ final class PlayerSession {
         return cashOut - totalBuyIn
     }
     
-    func addBuyIn(amount: Double) {
+    @discardableResult
+    func addBuyIn(amount: Double) -> BuyIn {
         let buyIn = BuyIn(amount: amount)
         buyIns.append(buyIn)
+        return buyIn
     }
 }

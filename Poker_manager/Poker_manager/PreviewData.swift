@@ -25,18 +25,19 @@ struct PreviewData {
     
     // MARK: - Sample Poker Group
     static func createSampleGroup() -> PokerGroup {
-        PokerGroup(
+        var group = PokerGroup(
             groupId: "POKER23",
             name: "Friday Night Poker",
-            currencySymbol: "$",
-            creatorId: "user123",
-            memberNames: [
-                "user1": "Sarah",
-                "user2": "Mike",
-                "user3": "David",
-                "user4": "Emma"
-            ]
+            createdBy: "user123",
+            currency: .USD
         )
+        group.memberNames = [
+            "user1": "Sarah",
+            "user2": "Mike",
+            "user3": "David",
+            "user4": "Emma"
+        ]
+        return group
     }
     
     // MARK: - Sample Active Game Session
@@ -50,7 +51,8 @@ struct PreviewData {
         
         for (index, amount) in amounts.enumerated() {
             if index < players.count {
-                let buyIn = BuyIn(amount: amount, timestamp: Date().addingTimeInterval(-Double(3600 - index * 300)))
+                let buyIn = BuyIn(amount: amount)
+                buyIn.timestamp = Date().addingTimeInterval(-Double(3600 - index * 300))
                 // Note: In real app, you'd associate with actual Player objects
             }
         }

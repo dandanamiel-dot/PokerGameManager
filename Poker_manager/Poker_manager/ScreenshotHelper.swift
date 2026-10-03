@@ -8,6 +8,7 @@
 //  3. Screenshots automatically save to your Mac
 //
 
+#if canImport(XCTest)
 import XCTest
 
 /*
@@ -191,3 +192,5 @@ final class AppStoreScreenshotTests: XCTestCase {
  
  ═══════════════════════════════════════════════════════════
  */
+
+#endif

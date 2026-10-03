@@ -3,7 +3,8 @@ import SwiftUI
 
 struct JoinGameView: View {
     let firebaseService = FirebaseService.shared
-    @State private var codeDigits: [String] = ["", "", "", ""]
+    @State private var codeDigits: [String] = Array(repeating: "", count: RoomCode.length)
+    @AppStorage(FirebaseService.liveDisplayNameKey) private var displayName = ""
     @State private var isJoining = false
     @State private var errorMessage: String?
     @State private var joinedRoom: GameRoom?
@@ -13,7 +14,7 @@ struct JoinGameView: View {
     @State private var isHost = false
     
     var body: some View {
-        if let room = activeRoom, !isHost {
+        if activeRoom != nil, !isHost {
             ViewerGameView()
         } else {
             joinInputView
@@ -37,20 +38,21 @@ struct JoinGameView: View {
                         .font(.title.bold())
                         .foregroundStyle(.white)
                     
-                    Text("Enter the 4-digit code from the host")
+                    Text("Enter the 6-digit code from the host")
                         .font(.subheadline)
                         .foregroundStyle(.gray)
                 }
                 
                 // Code Input
-                HStack(spacing: 12) {
-                    ForEach(0..<4, id: \.self) { index in
+                HStack(spacing: 8) {
+                    ForEach(0..<RoomCode.length, id: \.self) { index in
                         TextField("", text: $codeDigits[index])
-                            .font(.system(size: 36, weight: .bold, design: .monospaced))
+                            .font(.system(size: 30, weight: .bold, design: .monospaced))
                             .foregroundStyle(.white)
                             .multilineTextAlignment(.center)
                             .keyboardType(.numberPad)
-                            .frame(width: 64, height: 76)
+                            .textContentType(.oneTimeCode)
+                            .frame(width: 46, height: 64)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.white.opacity(0.08))
@@ -64,12 +66,18 @@ struct JoinGameView: View {
                             )
                             .focused($focusedField, equals: index)
                             .onChange(of: codeDigits[index]) { oldValue, newValue in
+                                // A whole pasted code fills every box
+                                if newValue.count > 1, let code = RoomCode.extract(from: newValue) {
+                                    codeDigits = code.map { String($0) }
+                                    focusedField = nil
+                                    return
+                                }
                                 // Limit to 1 digit
                                 if newValue.count > 1 {
                                     codeDigits[index] = String(newValue.suffix(1))
                                 }
                                 // Auto-advance
-                                if !newValue.isEmpty && index < 3 {
+                                if !newValue.isEmpty && index < RoomCode.length - 1 {
                                     focusedField = index + 1
                                 }
                                 // Auto-join when all 4 filled
@@ -79,6 +87,22 @@ struct JoinGameView: View {
                             }
                     }
                 }
+                
+                // Name shown to the host, so they know who to make admin
+                TextField("", text: $displayName, prompt: Text("Your name").foregroundColor(.gray))
+                    .font(.body)
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .textInputAutocapitalization(.words)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.white.opacity(0.08))
+                    )
+                    .padding(.horizontal, 40)
+                    .onChange(of: displayName) { _, newValue in
+                        if newValue.count > 30 { displayName = String(newValue.prefix(30)) }
+                    }
                 
                 // Error
                 if let error = errorMessage {
@@ -108,7 +132,7 @@ struct JoinGameView: View {
                         }
                     }
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(codeComplete ? Color.black : Color.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(
@@ -126,6 +150,10 @@ struct JoinGameView: View {
         }
         .onAppear {
             focusedField = 0
+            if displayName.isEmpty, let uid = firebaseService.currentUserId,
+               let groupName = firebaseService.activeGroup?.memberNames[uid] {
+                displayName = groupName
+            }
             activeRoom = firebaseService.activeRoom
             isHost = firebaseService.isHost
         }
@@ -146,7 +174,7 @@ struct JoinGameView: View {
     }
     
     private func joinRoom() {
-        guard codeComplete else { return }
+        guard codeComplete, !isJoining else { return }
         errorMessage = nil
         isJoining = true
         
@@ -158,7 +186,7 @@ struct JoinGameView: View {
             case .failure(let error):
                 errorMessage = error.localizedDescription
                 // Clear inputs for retry
-                codeDigits = ["", "", "", ""]
+                codeDigits = Array(repeating: "", count: RoomCode.length)
                 focusedField = 0
             }
         }
