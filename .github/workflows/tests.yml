@@ -46,6 +46,9 @@ jobs:
             -target Poker_manager \
             -sdk iphonesimulator \
             -configuration Debug \
+            -derivedDataPath "$PWD/DerivedData" \
+            SYMROOT="$PWD/DerivedData/Build/Products" \
+            OBJROOT="$PWD/DerivedData/Build/Intermediates" \
             CODE_SIGNING_ALLOWED=NO > build.log 2>&1
           status=$?
           tail -n 40 build.log
