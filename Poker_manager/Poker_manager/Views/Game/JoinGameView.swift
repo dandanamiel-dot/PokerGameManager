@@ -132,7 +132,7 @@ struct JoinGameView: View {
                         }
                     }
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(codeComplete ? .black : .white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(
