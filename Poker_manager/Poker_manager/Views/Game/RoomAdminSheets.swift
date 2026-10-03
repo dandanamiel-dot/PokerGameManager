@@ -343,6 +343,7 @@ struct RoomMembersSheet: View {
                         Section {
                             ForEach(room.allAdminIds, id: \.self) { uid in
                                 memberRow(uid: uid, name: name(for: uid, in: room), room: room)
+                                    .listRowBackground(AppTheme.cardBackground)
                             }
                         } header: {
                             Text("Admins")
@@ -356,9 +357,11 @@ struct RoomMembersSheet: View {
                                 Text("No one else is watching yet. Share the room code, or group members can open the Live tab.")
                                     .font(.footnote)
                                     .foregroundStyle(AppTheme.textSecondary)
+                                    .listRowBackground(AppTheme.cardBackground)
                             }
                             ForEach(watchers) { viewer in
                                 memberRow(uid: viewer.uid, name: viewer.name, room: room)
+                                    .listRowBackground(AppTheme.cardBackground)
                             }
                         } header: {
                             Text("Watching now")
@@ -366,8 +369,12 @@ struct RoomMembersSheet: View {
                     }
                 }
                 .scrollContentBackground(.hidden)
+                .environment(\.colorScheme, .dark)
             }
             .navigationTitle("Players & Admins")
+            .toolbarBackground(AppTheme.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

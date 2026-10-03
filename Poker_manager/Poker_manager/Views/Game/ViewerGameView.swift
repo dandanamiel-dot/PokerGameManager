@@ -166,7 +166,7 @@ struct ViewerGameView: View {
                                             )
                                             .foregroundStyle(AppTheme.accent)
                                             .lineStyle(StrokeStyle(lineWidth: 2.5))
-                                            .interpolationMethod(.catmullRom)
+                                            .interpolationMethod(.stepEnd)
                                             
                                             AreaMark(
                                                 x: .value("Time", point.timestamp),
@@ -179,7 +179,7 @@ struct ViewerGameView: View {
                                                     endPoint: .bottom
                                                 )
                                             )
-                                            .interpolationMethod(.catmullRom)
+                                            .interpolationMethod(.stepEnd)
                                         }
                                     }
                                     .frame(height: 180)

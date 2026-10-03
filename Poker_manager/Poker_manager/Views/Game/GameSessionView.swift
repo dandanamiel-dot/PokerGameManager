@@ -248,7 +248,7 @@ struct GameSessionView: View {
                                             )
                                             .foregroundStyle(AppTheme.accent)
                                             .lineStyle(StrokeStyle(lineWidth: 2.5))
-                                            .interpolationMethod(.catmullRom)
+                                            .interpolationMethod(.stepEnd)
                                             
                                             AreaMark(
                                                 x: .value("Time", point.time),
@@ -261,7 +261,7 @@ struct GameSessionView: View {
                                                     endPoint: .bottom
                                                 )
                                             )
-                                            .interpolationMethod(.catmullRom)
+                                            .interpolationMethod(.stepEnd)
                                             
                                             PointMark(
                                                 x: .value("Time", point.time),

@@ -8,6 +8,8 @@ struct HomeView: View {
     let groupId: String
     var onExit: (() -> Void)?
     var onSeeAllGames: (() -> Void)?
+    /// Switches to the Game tab, where the active game already lives
+    var onOpenTable: (() -> Void)?
     
     @Environment(\.modelContext) private var modelContext
     @Query private var recentGames: [GameSession]
@@ -24,12 +26,13 @@ struct HomeView: View {
     @State private var selectedGroup: PokerGroup?
     @State private var showSettings = false
     
-    init(group: PokerGroup?, currencySymbol: String, groupId: String, onExit: (() -> Void)? = nil, onSeeAllGames: (() -> Void)? = nil) {
+    init(group: PokerGroup?, currencySymbol: String, groupId: String, onExit: (() -> Void)? = nil, onSeeAllGames: (() -> Void)? = nil, onOpenTable: (() -> Void)? = nil) {
         self.group = group
         self.currencySymbol = currencySymbol
         self.groupId = groupId
         self.onExit = onExit
         self.onSeeAllGames = onSeeAllGames
+        self.onOpenTable = onOpenTable
         let gId = groupId
         _recentGames = Query(
             filter: #Predicate<GameSession> { $0.groupId == gId },
@@ -254,7 +257,7 @@ struct HomeView: View {
                             
                             if let game = activeGame {
                                 AccentButton(title: "Take Me to the Table", icon: "suit.spade.fill") {
-                                    selectedGame = game
+                                    openTable(game)
                                 }
                             } else {
                                 AccentButton(title: "Start New Game", icon: "plus") {
@@ -267,7 +270,7 @@ struct HomeView: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             if let game = activeGame {
-                                selectedGame = game
+                                openTable(game)
                             }
                         }
                     }
@@ -372,7 +375,11 @@ struct HomeView: View {
                                 }
                             }
                             .onTapGesture {
-                                selectedGame = game
+                                if game.status == .active {
+                                    openTable(game)
+                                } else {
+                                    selectedGame = game
+                                }
                             }
                         }
                     }
@@ -439,6 +446,16 @@ struct HomeView: View {
         withAnimation {
             game.status = .active
             game.endedAt = nil
+        }
+    }
+    
+    /// Opening a second copy of the game screen on top of the Game tab's
+    /// copy broke sheet presentation, so jump to the Game tab instead.
+    private func openTable(_ game: GameSession) {
+        if let onOpenTable {
+            onOpenTable()
+        } else {
+            selectedGame = game
         }
     }
 }
